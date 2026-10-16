@@ -11,11 +11,11 @@ A comprehensive data science project focused on understanding, cleaning, explori
 4. [Pipeline-Safe Imputation Strategy](#4-pipeline-safe-imputation-strategy)
 5. [Feature Engineering: Body Mass Index (BMI)](#5-feature-engineering-body-mass-index-bmi)
 6. [Post-Cleaning Exploratory Data Analysis (EDA) & Key Insights](#6-post-cleaning-exploratory-data-analysis-eda--key-insights)
-7. [Next Steps: Machine Learning Modeling Roadmap](#7-next-steps-machine-learning-modeling-roadmap)
 
 ---
 
 ## 1. Executive Overview & Dataset Summary
+* **Dataset Source:** Publicly available on Kaggle — [Cardiovascular Disease Dataset](https://www.kaggle.com/datasets/sulianova/cardiovascular-disease-dataset)
 * **Dataset Size:** 70,000 records and 13 original features describing patient demographic characteristics, biological measurements, lifestyle factors, and cardiovascular disease status[cite: 1].
 * **Target Variable:** `cardio` (a binary classification indicator: `0 = Healthy / No Disease`, `1 = Heart Disease Present`)[cite: 1].
 * **Class Balance:** The target variable is **perfectly balanced** (~50.03% healthy vs. ~49.97% diseased), eliminating the need for complex resamplers (e.g., SMOTE) and allowing models to learn both classes fairly[cite: 8].
@@ -33,16 +33,16 @@ During the preliminary assessment, dataset structural integrity, column data typ
 
 ---
 
-## 3. Data Anomalies & Cleaning Decisions Matrix
+### 3. Data Anomalies & Cleaning Decisions Matrix
 
 To prepare the dataset for machine learning without losing valuable patient records or introducing data leakage, strict domain-specific cleaning rules were adopted:
 
 | Feature | Identified Anomaly Description | Action Taken & Rationale |
 | :--- | :--- | :--- |
-| **`id` Column** | Identifier column with no predictive medical power[cite: 1]. | **Dropped / Reset** to prevent overfitting on index numbers[cite: 1]. |
-| **Height (`height`)** | 30 records below 100 cm or above 220 cm. | **Replaced with `NaN`**. Preserves rest of patient row; imputed via Median in pipeline[cite: 5, 6]. |
-| **Weight (`weight`)** | 7 records below 30 kg[cite: 5, 6]. | **Replaced with `NaN`**. Preserves rest of patient row; imputed via Median in pipeline[cite: 5, 6]. |
-| **Blood Pressure (`ap_hi` / `ap_lo`)** | Extreme noise (e.g., values > 10,000, negatives, or `ap_hi <= ap_lo`)[cite: 3, 5, 6]. | **Filtered & Dropped Rows**. Kept valid human range: $70 \le \text{ap\_hi} \le 250$, $40 \le \text{ap\_lo} \le 150$, and $\text{ap\_hi} > \text{ap\_lo}$[cite: 3]. |
+| **`id` Column** | Identifier column with no predictive medical power. | **Dropped / Reset** to prevent overfitting on index numbers. |
+| **Height (`height`)** | 30 records below 100 cm or above 220 cm. | **Replaced with `NaN`**. Preserves rest of patient row; imputed via Median in pipeline. |
+| **Weight (`weight`)** | 7 records below 30 kg. | **Replaced with `NaN`**. Preserves rest of patient row; imputed via Median in pipeline. |
+| **Blood Pressure (`ap_hi` / `ap_lo`)** | Extreme noise (e.g., values > 10,000, negatives, or `ap_hi <= ap_lo`). | **Filtered & Dropped Rows**. Kept valid human range: $70 \le \text{ap\_hi} \le 250$, $40 \le \text{ap\_lo} \le 150$, and $\text{ap\_hi} > \text{ap\_lo}$. |
 
 ---
 
@@ -86,7 +86,7 @@ Following data cleaning and engineering, exploratory visualizations were conduct
    * **Conclusion:** High cholesterol and glucose are critical categorical predictors.
 
 5. **Feature Importance & Correlation Analysis:**
-   * **Finding:** Systolic Blood Pressure (`ap_hi`) exhibits the strongest positive correlation with heart disease ($\sim 0.43$), followed by Diative BP (`ap_lo`) ($\sim 0.34$), Age ($\sim 0.24$), Cholesterol ($\sim 0.22$), and BMI ($\sim 0.19$). Height shows almost zero correlation ($\sim -0.01$).
+   * **Finding:** Systolic Blood Pressure (`ap_hi`) exhibits the strongest positive correlation with heart disease ($\sim 0.43$), followed by Diastolic BP BP (`ap_lo`) ($\sim 0.34$), Age ($\sim 0.24$), Cholesterol ($\sim 0.22$), and BMI ($\sim 0.19$). Height shows almost zero correlation ($\sim -0.01$).
    * **Conclusion:** Blood pressure metrics, age, cholesterol, and body mass are the most impactful features for predictive model training.
 
 
