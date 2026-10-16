@@ -1,3 +1,19 @@
+### 📁 Dataset Source
+The dataset used in this project is publicly available on Kaggle — [COVID-19 Patient Dataset](https://www.kaggle.com/datasets/meirnizri/covid19-dataset) (Sourced from the Mexican Ministry of Health).
+
+---
+### 📋 Table of Contents
+1. [Dataset Overview](#1-dataset-overview)
+2. [Data Types and Missing Values](#2-data-types-and-missing-values)
+3. [Special Categorical Codes](#3-special-categorical-codes)
+4. [Categorical Value Validation](#4-categorical-value-validation)
+5. [Duplicate Records](#5-duplicate-records)
+6. [Numerical Analysis and Potential Outliers](#6-numerical-analysis-and-potential-outliers)
+7. [Logical Consistency Checks](#7-logical-consistency-checks)
+8. [Cleaning Decisions Summary](#8-cleaning-decisions-summary)
+9. [Post-Cleaning Exploratory Data Analysis (EDA) & Key Insights](#9-post-cleaning-exploratory-data-analysis-eda--key-insights)
+10. [Technologies & Tools Used](#11-technologies--tools-used)
+
 
 ## Data Quality Assessment and Cleaning
 
@@ -89,8 +105,43 @@ The relationship between `DATE_DIED` and `CLASIFFICATION_FINAL` was also explore
 - Exact duplicate rows were retained because the absence of a unique patient identifier prevents reliable confirmation that they are erroneous duplicates.
 - No rows were removed during the checks described above.
 
-### 9. Status Before EDA
+---
 
-The initial data quality checks and preliminary cleaning steps have been completed. Before finalizing the modeling dataset, further review is needed to confirm the dataset's coding conventions, assess duplicate records, and determine how missing and not-applicable values should be handled for each modeling task.
+### 9. Post-Cleaning Exploratory Data Analysis (EDA) & Key Insights
 
-The dataset is now ready to proceed to structured Exploratory Data Analysis (EDA), while unresolved data quality questions remain documented for subsequent review.
+Following data cleaning and engineering, exploratory visualizations and statistical analyses were conducted to uncover underlying demographic and clinical patterns:
+
+1. **Patient Age Distribution:**
+   - **Finding:** The age distribution shows a prominent peak among adults aged **25 to 50 years**, representing the most frequently recorded demographic group.
+
+2. **COVID-19 Classifications Distribution:**
+   - **Finding:** The distribution of COVID-19 classifications highlights that **codes 3 and 7** contain the highest volume of patient records.
+
+3. **Patient Type Distribution:**
+   - **Finding:** Patient types show that the vast majority of cases (code 1) were managed as outpatients, while a smaller portion required hospital admission (code 2).
+
+4. **Death Records Comparison:**
+   - **Finding:** Comparison of death records indicates that the majority of patients survived (`False`), with a significantly lower count of recorded deaths (`True`).
+
+5. **Patient Age by COVID-19 Classification:**
+   - **Finding:** Box plot analysis of patient age across different classification codes reveals that **classification code 2** generally has an older patient median age.
+
+6. **Patient Age by Death Status:**
+   - **Finding:** Age comparison by death status clearly demonstrates that deceased patients (`True`) have a significantly higher median age compared to survivors (`False`).
+
+7. **COVID-19 Classifications by Patient Type:**
+   - **Finding:** Stacked bar chart analysis illustrating COVID-19 classifications broken down by patient type, highlighting compositional shifts between outpatients and inpatients.
+
+8. **Death Rates by Chronic Conditions:**
+   - **Finding:** Death rate percentages categorized by chronic conditions show that patients with severe conditions, such as **renal disease, diabetes, and COPD**, face substantially higher mortality rates.
+
+9. **Chronic Conditions Prevalence:**
+   - **Finding:** The prevalence analysis of pre-existing health issues indicates that **Hypertension and Obesity** are the most frequently recorded chronic conditions in the dataset, underscoring their widespread presence among patients.
+  
+### 10. Technologies & Tools Used
+
+* **Programming Language:** Python 3.x
+* **Core Libraries & Data Processing:** Pandas, NumPy
+* **Data Visualization:** Matplotlib, Seaborn
+* **File & Path Management:** Pathlib, CSV
+* **Environment & Interactive Display:** IPython.display (display), Jupyter Notebook / Visual Studio Code
