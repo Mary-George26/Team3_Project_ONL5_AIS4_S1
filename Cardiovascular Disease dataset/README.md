@@ -42,7 +42,7 @@ To prepare the dataset for machine learning without losing valuable patient reco
 | **`id` Column** | Identifier column with no predictive medical power. | **Dropped / Reset** to prevent overfitting on index numbers. |
 | **Height (`height`)** | 30 records below 100 cm or above 220 cm. | **Replaced with `NaN`**. Preserves rest of patient row; imputed via Median in pipeline. |
 | **Weight (`weight`)** | 7 records below 30 kg. | **Replaced with `NaN`**. Preserves rest of patient row; imputed via Median in pipeline. |
-| **Blood Pressure (`ap_hi` / `ap_lo`)** | Extreme noise (e.g., values > 10,000, negatives, or `ap_hi <= ap_lo`). | **Filtered & Dropped Rows**. Kept valid human range: $70 \le \text{ap\_hi} \le 250$, $40 \le \text{ap\_lo} \le 150$, and $\text{ap\_hi} > \text{ap\_lo}$. |
+| **Blood Pressure (`ap_hi` / `ap_lo`)** | Extreme noise (e.g., values > 10,000, negatives, or `ap_hi <= ap_lo`). | **Filtered & Dropped Rows**. Kept valid human range:<br>• `70 <= ap_hi <= 250`<br>• `40 <= ap_lo <= 150`<br>• `ap_hi > ap_lo` |
 
 ---
 
