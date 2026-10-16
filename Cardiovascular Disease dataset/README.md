@@ -50,6 +50,7 @@ To prepare the dataset for machine learning without losing valuable patient reco
 
 ```text
 [ Extreme Height/Weight Outliers ] ───► Converted to NaN ───► Preserved Patient Rows ───► Imputed via Median in Scikit-Learn Pipeline
+```
 
 ## Engineering Note: Data Preprocessing & Feature Engineering
 
