@@ -25,69 +25,63 @@ A comprehensive data science project focused on understanding, cleaning, explori
 ## 2. Initial Data Inspection & Quality Assessment
 During the preliminary assessment, dataset structural integrity, column data types, missing values, and potential anomalies were evaluated:
 
-* **Missing Values:** `0` null values across all original columns.
-* **Duplicate Records:** `0` duplicate rows detected.
-* **ID Uniqueness:** All `id` values are 100% unique[cite: 1].
-* **Categorical Integrity:** All categorical variables (`gender`, `cholesterol`, `gluc`, `smoke`, `alco`, `active`) strictly conform to expected categorical ranges[cite: 1, 2].
-* **Feature Engineering:** `age` was converted from days to years into `age_years` ($\text{age} / 365.25$) for improved interpretability[cite: 1]. Age ranges between **29.6 and 64.9 years** (Mean: **53.3 years**).
+- **Identifier Column Removal:** The `id` column was removed because it is an identifier with no medical predictive value. Removing it prevents overfitting on index numbers.
+- **Duplicate Records:** After removing the `id` column, **24 duplicate rows** were identified and completely **dropped/removed** from the dataset to ensure data purity and prevent model bias caused by duplicated instances.
+- **Categorical Integrity:** All categorical variables (`gender`, `cholesterol`, `gluc`, `smoke`, `alco`, `active`) strictly conform to expected categorical ranges.
+- **Age Standardization:** `age` was converted from days to years into `age_years` ($\text{age} / 365.25$) for improved interpretability. Age ranges between **29.6 and 64.9 years** (Mean: **53.3 years**).
 
+## 3. Missing Values Handling & Imputation Strategy
+
+Following initial inspection, missing values were identified across three specific numerical features:
+- **`height`:** 27 missing values
+- **`weight`:** 3 missing values
+- **`bmi`:** 33 missing values
+
+```text
+[ Missing Height / Weight ] ───► Imputed via Gender-Based Median ───► Recalculated BMI ───► Zero Null Values
 ---
 
 ### 3. Data Anomalies & Cleaning Decisions Matrix
 
-To prepare the dataset for machine learning without losing valuable patient records or introducing data leakage, strict domain-specific cleaning rules were adopted:
+To prepare the dataset for machine learning without losing valuable patient records or introducing data leakage, strict domain-specific cleaning rules and statistical IQR boundaries were adopted:
 
 | Feature | Identified Anomaly Description | Action Taken & Rationale |
 | :--- | :--- | :--- |
-| **`id` Column** | Identifier column with no predictive medical power. | **Dropped / Reset** to prevent overfitting on index numbers. |
-| **Height (`height`)** | 30 records below 100 cm or above 220 cm. | **Replaced with `NaN`**. Preserves rest of patient row; imputed via Median in pipeline. |
-| **Weight (`weight`)** | 7 records below 30 kg. | **Replaced with `NaN`**. Preserves rest of patient row; imputed via Median in pipeline. |
-| **Blood Pressure (`ap_hi` / `ap_lo`)** | Extreme noise (e.g., values > 10,000, negatives, or `ap_hi <= ap_lo`). | **Filtered & Dropped Rows**. Kept valid human range:<br>• `70 <= ap_hi <= 250`<br>• `40 <= ap_lo <= 150`<br>• `ap_hi > ap_lo` |
+| **`id` Column** | Identifier column with no medical predictive value. | **Dropped / Removed** to prevent overfitting on index numbers and unmask duplicate patient records. |
+| **Height (`height`)** | 478 statistical outliers detected outside the IQR bounds ($142.5 \le \text{height} \le 186.5\text{ cm}$). | **Categorized & Retained**. Missing values imputed via gender-grouped median; valid original extreme measurements preserved. |
+| **Weight (`weight`)** | 1,739 statistical outliers detected outside the IQR bounds ($39.5 \le \text{weight} \le 107.5\text{ kg}$). | **Categorized & Retained**. Missing values imputed via gender-grouped median; valid original extreme measurements preserved. |
+| **Blood Pressure (`ap_hi` / `ap_lo`)** | Extreme noise, non-physiological values, and high diastolic readings ($> 120\text{ mmHg}$). | **Clipping & Preservation**. Copied to `ap_lo_original`; values of `ap_lo` above $120\text{ mmHg}$ capped at $120$. Extreme noise categorized into clinical risk groups. |
 
 ---
 
-## 4. Pipeline-Safe Imputation Strategy
+## 4. Outlier Detection, Categorization & Treatment (IQR Method)
 
-```text
-[ Extreme Height/Weight Outliers ] ───► Converted to NaN ───► Preserved Patient Rows ───► Imputed via Median in Scikit-Learn Pipeline
-```
+The **Interquartile Range (IQR)** method was applied to identify potential statistical outliers across numerical features. Bounds were calculated using the standard formulas:
 
-## Engineering Note: Data Preprocessing & Feature Engineering
+$$\text{IQR} = Q_3 - Q_1$$
+$$\text{Lower Bound} = Q_1 - 1.5 \times \text{IQR}, \quad \text{Upper Bound} = Q_3 + 1.5 \times \text{IQR}$$
 
-Instead of hardcoding replacement values or dropping entire rows, anomalous height and weight values were set to `NaN`. Median imputation will be executed within a `SimpleImputer` inside a Machine Learning Pipeline. The median will be computed solely on training splits (`X_train`) during model training to completely avoid Data Leakage.
+To preserve realistic medical measurements without unnecessary data loss, statistical outlier categorization was systematically separated from numerical modification:
 
-### 5. Feature Engineering: Body Mass Index (BMI)
+| Feature | IQR Bounds | Outliers Detected | Action Taken & Rationale |
+| :--- | :--- | :--- | :--- |
+| **`height`** | 142.5 – 186.5 cm | 478 records | Categorized into `height_category`; original values retained. |
+| **`weight`** | 39.5 – 107.5 kg | 1,739 records | Categorized into `weight_category`; original values retained. |
+| **`ap_hi`** | 90 – 170 mmHg | 1,005 records | Categorized into `ap_hi_category`; potential outliers preserved without automatic clipping. |
+| **`ap_lo`** | 65 – 105 mmHg | 3,499 records | Categorized into `ap_lo_category`. Original values copied to `ap_lo_original`; values above 120 capped at 120 (clipping). |
+| **`age_years`** | 33.15 – 73.55 yrs | 4 records | Retained without modification as ages represent plausible human ranges. |
+| **`bmi`** | ~14.52 – 39.48 | 1,992 records | Recalculated after height/weight imputation; potential outliers retained. |
 
-To enrich model predictions, the Body Mass Index (BMI) was engineered from clean height and weight features:
+## 5. Feature Engineering
 
-$$\text{BMI} = \frac{\text{weight (kg)}}{\left(\frac{\text{height (cm)}}{100}\right)^2}$$
+To enrich exploratory data analysis and provide optimal inputs for predictive modeling, several domain-specific features were engineered:
 
-* **Clinical Significance:** Provides a holistic measure of body composition, which strongly correlates with hypertension and cardiovascular risk.
+* **`age_years`:** Converted age from days into years ($\text{age} / 365.25$) for intuitive clinical interpretability.
+* **`bmi`:** Body Mass Index calculated precisely from the cleaned weight and height measurements.
+* **Categorical Risk Feature Groupings:**
+  * **`height_category` & `weight_category`:** Categorized records relative to their statistical Interquartile Range (IQR) bounds.
+  * **`ap_hi_category` & `ap_lo_category`:** Binned systolic and diastolic blood pressure levels into structured clinical risk categories.
 
 ---
-
-### 6. Post-Cleaning Exploratory Data Analysis (EDA) & Key Insights
-
-Following data cleaning and engineering, exploratory visualizations were conducted to uncover underlying patterns:
-
-1. **Numerical Feature Distributions (Histograms):**
-   * **Finding:** Height, weight, and age_years demonstrate clean, near-normal distributions bounded within realistic human limits post-cleaning.
-   * **Conclusion:** Blood pressure features (`ap_hi`, `ap_lo`) now reside entirely within medically plausible clinical bounds.
-
-2. **Target Balance Verification (Bar Plot):**
-   * **Finding:** Both classes (0: Healthy, 1: Disease) each maintain approximately 35,000 clean records.
-   * **Conclusion:** Eliminates classification bias toward a dominant class during model execution.
-
-3. **Demographic & Physiological Comparisons (Bar & Box Plots):**
-   * **Finding:** Patients with cardiovascular disease (`cardio = 1`) display noticeably higher mean Age, Systolic BP (`ap_hi`), Diastolic BP (`ap_lo`), and BMI compared to non-diseased individuals (`cardio = 0`). Average height shows minimal variation between groups.
-   * **Conclusion:** Age, blood pressure, and BMI are primary risk indicators for heart disease.
-
-4. **Categorical Risk Factors:**
-   * **Finding:** The probability of heart disease increases dramatically at higher levels of Cholesterol and Glucose (particularly at Level 3: Well above normal).
-   * **Conclusion:** High cholesterol and glucose are critical categorical predictors.
-
-5. **Feature Importance & Correlation Analysis:**
-   * **Finding:** Systolic Blood Pressure (`ap_hi`) exhibits the strongest positive correlation with heart disease ($\sim 0.43$), followed by Diastolic BP BP (`ap_lo`) ($\sim 0.34$), Age ($\sim 0.24$), Cholesterol ($\sim 0.22$), and BMI ($\sim 0.19$). Height shows almost zero correlation ($\sim -0.01$).
-   * **Conclusion:** Blood pressure metrics, age, cholesterol, and body mass are the most impactful features for predictive model training.
 
 
