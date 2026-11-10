@@ -1,0 +1,40 @@
+/* Page */
+body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; background: #eef4fa; color: #0b2545; }
+.page { display: flex; min-height: 100vh; }
+
+/* Sidebar */
+.sidebar { width: 250px; background: #0b2545; color: white; padding: 25px 20px; box-sizing: border-box; }
+.sidebar h3 { margin-top: 0; }
+.filter { margin-bottom: 20px; }
+.filter label { display: block; margin-bottom: 6px; font-size: 14px; color: #8eb8e5; }
+.filter .Select-control, .filter .Select-menu-outer, .filter .dash-dropdown { color: #0b2545; }
+.sidebar .note { font-size: 12px; color: #8eb8e5; }
+
+/* Main area */
+.main { flex: 1; padding: 25px; min-width: 0; }
+.header { background: linear-gradient(90deg, #0b2545, #2e6fbf); color: white; padding: 20px 25px; border-radius: 12px; }
+.header h1 { margin: 0 0 5px 0; font-size: 28px; }
+.header p { margin: 0; color: #dbe9f8; }
+
+/* KPI cards */
+.kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 15px; margin: 20px 0; }
+.kpi-card { background: white; border-left: 5px solid #2e6fbf; border-radius: 10px; padding: 15px 18px; box-shadow: 0 2px 6px rgba(11, 37, 69, 0.08); }
+.kpi-title { margin: 0; font-size: 13px; color: #5b7390; }
+.kpi-value { margin: 6px 0 0 0; font-size: 28px; }
+
+/* Charts */
+.chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 15px; }
+.chart-box { background: white; border-radius: 10px; padding: 15px; box-shadow: 0 2px 6px rgba(11, 37, 69, 0.08); min-width: 0; }
+.chart-box h4 { margin: 0 0 10px 0; }
+
+/* Insights */
+.insights { background: white; border-radius: 10px; padding: 15px 25px; margin-top: 20px; box-shadow: 0 2px 6px rgba(11, 37, 69, 0.08); }
+.insights li { margin-bottom: 8px; line-height: 1.5; }
+.insights .note { font-size: 12px; color: #5b7390; }
+
+/* Small screens: sidebar goes on top */
+@media (max-width: 800px) {
+  .page { flex-direction: column; }
+  .sidebar { width: 100%; }
+  .chart-grid { grid-template-columns: 1fr; }
+}
