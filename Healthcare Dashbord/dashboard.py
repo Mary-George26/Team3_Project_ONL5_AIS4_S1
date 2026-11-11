@@ -539,7 +539,7 @@ app.layout = html.Div([
     Output("heart-cholesterol-count", "figure"),
     Output("heart-bmi-hist", "figure"),
     Output("heart-age-bp-scatter", "figure"),
-    Input("heart-gender-filter", "value"), # لو مش موجودة في اللات آوت تقدري تضيفيها أو تستبدليها
+    Input("heart-gender-filter", "value"), 
     Input("heart-age-slider", "value"),
 )
 def update_overview_heart(selected_gender, age_range):
