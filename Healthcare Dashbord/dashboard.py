@@ -1,14 +1,20 @@
-
 """
 HEALTHCARE PREDICTIVE ANALYTICS DASHBOARD
-Classification Models | Cardiovascular Disease & Diabetes
+Multi-Disease Healthcare Analytics | Heart Disease, Diabetes & Chronic Kidney Disease
 
 Open:
     http://127.0.0.1:8050/
 
 Project Overview:
-    An interactive healthcare analytics dashboard featuring
-    separate classification models for different diseases.
+    An interactive healthcare analytics dashboard that brings
+    together data exploration and visualization for multiple
+    diseases, including Cardiovascular Disease, Diabetes, and
+    Chronic Kidney Disease.
+
+    The dashboard provides disease-specific insights through
+    interactive filters, statistical summaries, and visualizations.
+    Separate classification models are implemented for selected
+    diseases to support predictive analysis.
 
 Technologies:
     Python, Pandas, NumPy, Scikit-learn,
@@ -86,6 +92,13 @@ def dropdown_options(column, all_label):
         {"label": c, "value": c} for c in ORDERS[column] if c in set(df[column])
     ]
 
+# --- Dataset 3: Chronic Kidney Disease ---
+KIDNEY_FILE = Path(__file__).with_name("kidney_cleaning.csv")
+if not KIDNEY_FILE.exists():
+    raise FileNotFoundError(f"Put kidney_cleaned.csv next to this script: {KIDNEY_FILE}")
+
+df_kidney = pd.read_csv(KIDNEY_FILE)
+
 # ============================================================
 # 3. TRAIN A BASIC CLASSIFICATION MODEL
 # ============================================================
@@ -144,6 +157,60 @@ auc_diab = roc_auc_score(y_test_d, test_probability_diab)
 # Always predicting "no diabetes" is right this often. Accuracy alone is misleading.
 BASELINE_ACCURACY = 1 - y_test_d.mean()
 
+# --- Dataset 3: Chronic Kidney Disease ---
+# Patient_ID and the target label are not used as input features.
+FEATURES_KIDNEY = [
+    "Age",
+    "Blood_Pressure",
+    "Blood_Urea",
+    "Serum_Creatinine",
+    "Hemoglobin"
+]
+
+X_kidney = df_kidney[FEATURES_KIDNEY]
+
+# Convert target labels into binary values.
+# no = 0 (No CKD), si = 1 (CKD)
+y_kidney = df_kidney["Chronic_Kidney_Disease"].map({
+    "no": 0,
+    "si": 1
+})
+
+if y_kidney.isna().any():
+    raise ValueError("Unexpected or missing CKD target values.")
+
+X_train_k, X_test_k, y_train_k, y_test_k = train_test_split(
+    X_kidney,
+    y_kidney,
+    test_size=0.25,
+    random_state=42,
+    stratify=y_kidney
+)
+# Fit preprocessing ONLY on training data.
+scaler_kidney = StandardScaler()
+
+X_train_k_scaled = scaler_kidney.fit_transform(X_train_k)
+X_test_k_scaled = scaler_kidney.transform(X_test_k)
+
+# Train Logistic Regression model.
+model_kidney = LogisticRegression(
+    max_iter=1000,
+    random_state=42
+)
+model_kidney.fit(X_train_k_scaled, y_train_k)
+# Predict probabilities for the positive class (CKD).
+test_probability_kidney = model_kidney.predict_proba(
+    X_test_k_scaled
+)[:, 1]
+# ROC Curve and AUC.
+fpr_k, tpr_k, roc_thresholds_k = roc_curve(
+    y_test_k,
+    test_probability_kidney
+)
+auc_kidney = roc_auc_score(
+    y_test_k,
+    test_probability_kidney
+)
 
 
 # ============================================================
@@ -265,13 +332,71 @@ app.index_string = app.index_string.replace(
     </style></head>""",
 )
 
+# --- Dataset 3: Chronic Kidney Disease ---
+KIDNEY_HEALTHY = "#16a6a0"
+KIDNEY_DISEASE = "#ef7079"
+KIDNEY_ACCENT = "#2563eb"
+KIDNEY_MUTED = "#758399"
+def format_chart_kidney(fig):
+    fig.update_layout(
+        template="plotly_white",
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+        font=dict(family="Arial"),
+        margin=dict(l=20, r=20, t=45, b=20),
+    )
+    return fig
+def metric_card_kidney(title, component_id, color):
+    return dbc.Card(
+        dbc.CardBody([
+            html.P(
+                title,
+                style={
+                    "color": KIDNEY_MUTED,
+                    "fontSize": "13px",
+                    "marginBottom": "8px"
+                }
+            ),
+            html.H3(
+                id=component_id,
+                children="—",
+                style={
+                    "fontWeight": "800",
+                    "color": color,
+                    "margin": "0"
+                }
+            ),
+        ]),
+        style={
+            "border": "none",
+            "borderRadius": "16px",
+            "boxShadow": "0 4px 15px rgba(0,0,0,0.05)",
+            "background": "white"
+        }
+    )
+def chart_panel_kidney(title, subtitle, graph_id):
+    return dbc.Card(
+        dbc.CardBody([
+            html.H5(title, style={"fontWeight": "700"}),
+            html.P(
+                subtitle,
+                style={"color": KIDNEY_MUTED, "fontSize": "13px"}
+            ),
+            dcc.Graph(id=graph_id)
+        ]),
+        style={
+            "border": "none",
+            "borderRadius": "16px",
+            "boxShadow": "0 4px 15px rgba(0,0,0,0.05)",
+            "background": "white"
+        }
+    )
 
 # ============================================================
-# 5. DASHBOARD LAYOUT (TWO TABS)
+# 5. DASHBOARD LAYOUT
 # ============================================================
 # --- Dataset 1: Heart Disease ---
 overview_tab_heart = html.Div([
-
     # Heart filters
     html.Div([
         dbc.Row([
@@ -480,47 +605,180 @@ diab_full_tab = html.Div([
     )
 ])
 
-# ----- MAIN APP LAYOUT ----
+# --- Dataset 3: Chronic Kidney Disease ---
+explore_tab_kidney = html.Div([
+    html.Div(dbc.Row([
+        dbc.Col([
+            html.Label("Age Group", className="fw-bold mb-2"),
+            dcc.Dropdown(
+                id="kidney-age-filter",
+                options=[{"label": "All age groups", "value": "All"}] + [
+                    {"label": group.replace("_", " ").title(), "value": group}
+                    for group in ["child", "young_adult", "middle_aged", "senior"]
+                    if group in df_kidney["Age_Group"].unique()
+                ],
+                value="All", clearable=False,
+            ),
+        ], md=5, className="mb-3"),
+        dbc.Col([
+            html.Label("Minimum Age", className="fw-bold mb-2"),
+            dcc.Slider(
+                id="kidney-age-slider",
+                min=int(df_kidney["Age"].min()), max=int(df_kidney["Age"].max()),
+                step=1, value=int(df_kidney["Age"].min()),
+                marks={i: str(i) for i in range(int(df_kidney["Age"].min()), int(df_kidney["Age"].max()) + 1, 10)},
+                tooltip={"placement": "bottom", "always_visible": False},
+            ),
+        ], md=7, className="mb-3"),
+    ], align="center"), style={**PANEL_DIAB, "marginBottom": "18px"}),
+    dbc.Row([
+        dbc.Col(metric_card_diab("Patients in view", "kidney-patients-kpi", ACCENT), lg=3, sm=6, className="mb-3"),
+        dbc.Col(metric_card_diab("CKD Rate", "kidney-rate-kpi", DIABETIC), lg=3, sm=6, className="mb-3"),
+        dbc.Col(metric_card_diab("Average Age", "kidney-age-kpi", AMBER), lg=3, sm=6, className="mb-3"),
+        dbc.Col(metric_card_diab("Average Serum Creatinine", "kidney-creatinine-kpi", HEALTHY), lg=3, sm=6, className="mb-3"),
+    ]),
+    dbc.Row([
+        dbc.Col(chart_panel_diab("CKD Outcomes", "Class balance for patients with and without CKD", "kidney-class-pie"), lg=5, className="mb-3"),
+        dbc.Col(chart_panel_diab("Age Distribution", "Distribution of patients by age", "kidney-age-hist"), lg=7, className="mb-3"),
+    ]),
+    dbc.Row([
+        dbc.Col(chart_panel_diab("Age vs. Serum Creatinine", "Each dot represents one patient", "kidney-age-creatinine-scatter"), lg=7, className="mb-3"),
+        dbc.Col(chart_panel_diab("Patients by Age Group", "Number of patients in each age group", "kidney-age-group-count"), lg=5, className="mb-3"),
+    ]),
+])
+
+kidney_model_tab = html.Div([
+    # Threshold Filter
+    html.Div([
+        html.Label(
+            "Classification Threshold",
+            className="fw-bold mb-2"
+        ),
+        dcc.Slider(
+            id="kidney-threshold-slider",
+            min=0.1,
+            max=0.9,
+            step=0.05,
+            value=0.5,
+            marks={
+                0.1: "0.1",
+                0.3: "0.3",
+                0.5: "0.5",
+                0.7: "0.7",
+                0.9: "0.9"
+            },
+            tooltip={
+                "placement": "bottom",
+                "always_visible": False
+            }
+        ),
+    ], style={
+        "background": "white",
+        "padding": "22px",
+        "borderRadius": "16px",
+        "marginBottom": "18px"
+    }),
+    # KPI Cards
+    dbc.Row([
+        dbc.Col(
+            metric_card_kidney(
+                "Accuracy",
+                "kidney-accuracy-kpi",
+                KIDNEY_ACCENT
+            ),
+            lg=3, sm=6, className="mb-3"
+        ),
+        dbc.Col(
+            metric_card_kidney(
+                "Precision",
+                "kidney-precision-kpi",
+                KIDNEY_HEALTHY
+            ),
+            lg=3, sm=6, className="mb-3"
+        ),
+        dbc.Col(
+            metric_card_kidney(
+                "Recall",
+                "kidney-recall-kpi",
+                KIDNEY_DISEASE
+            ),
+            lg=3, sm=6, className="mb-3"
+        ),
+        dbc.Col(
+            metric_card_kidney(
+                "F1 Score",
+                "kidney-f1-kpi",
+                "#f6a34d"
+            ),
+            lg=3, sm=6, className="mb-3"
+        ),
+    ]),
+    # Evaluation Charts
+    dbc.Row([
+        dbc.Col(
+            chart_panel_kidney(
+                "Confusion Matrix",
+                "Actual vs. predicted CKD classifications",
+                "kidney-confusion-heatmap"
+            ),
+            lg=6, className="mb-3"
+        ),
+        dbc.Col(
+            chart_panel_kidney(
+                "ROC Curve",
+                f"Model discrimination performance | AUC = {auc_kidney:.3f}",
+                "kidney-roc-line"
+            ),
+            lg=6, className="mb-3"
+        ),
+    ]),
+
+])
+kidney_full_tab = html.Div([
+    dcc.Tabs(
+        id="kidney-sub-tabs",
+        value="kidney-explore",
+        className="dashboard-tabs",
+        children=[
+            dcc.Tab(
+                label="Explore patients",
+                value="kidney-explore",
+                children=explore_tab_kidney,
+                className="dashboard-tab",
+                selected_className="dashboard-tab--selected"
+            ),
+            dcc.Tab(
+                label="Evaluate the model",
+                value="kidney-evaluate",
+                children=kidney_model_tab,
+                className="dashboard-tab",
+                selected_className="dashboard-tab--selected"
+            ),
+        ]
+    )
+])
+
+# --- Main App Layout ---
 app.layout = html.Div([
     dbc.Container([
-        # Hero Section
         html.Div([
             html.Div("HEALTHCARE ANALYTICS / MULTI-MODEL SYSTEM", style={"fontSize": "12px", "letterSpacing": "2px", "fontWeight": "750", "color": "#bcd0ff", "marginBottom": "13px"}),
             html.H1("Unified Health Intelligence Dashboard", style={"fontWeight": "800", "fontSize": "clamp(27px, 4vw, 40px)", "margin": "0 0 8px", "color": "white"}),
-            html.P("Explore Cardiovascular Disease and Diabetes analytics seamlessly in one place.", style={"color": "#d6e1f5", "fontSize": "15px", "margin": "0 0 19px"}),
+            html.P("Explore Cardiovascular Disease, Diabetes, and Chronic Kidney Disease analytics seamlessly in one place.", style={"color": "#d6e1f5", "fontSize": "15px", "margin": "0 0 19px"}),
         ], style={
             "background": "linear-gradient(115deg, #101f3a 0%, #1d3976 70%, #2755a1 100%)",
             "borderRadius": "22px", "padding": "35px 35px", "color": "white",
             "boxShadow": "0 14px 35px rgba(16,31,58,0.12)", "marginBottom": "22px"
         }),
-
         dcc.Tabs(
-            id="main-dataset-tabs",
-            value="tab-heart",
-            className="dashboard-tabs",
+            id="main-dataset-tabs", value="tab-heart", className="dashboard-tabs",
             children=[
-                dcc.Tab(
-                    label="Cardiovascular Disease",
-                    value="tab-heart",
-                    children=heart_full_tab,
-                    className="dashboard-tab",
-                    selected_className="dashboard-tab--selected"
-                ),
-                dcc.Tab(
-                    label="Diabetes Risk",
-                    value="tab-diabetes",
-                    children=diab_full_tab,
-                    className="dashboard-tab",
-                    selected_className="dashboard-tab--selected"
-                ),
+                dcc.Tab(label="Cardiovascular Disease", value="tab-heart", children=heart_full_tab, className="dashboard-tab", selected_className="dashboard-tab--selected"),
+                dcc.Tab(label="Diabetes Risk", value="tab-diabetes", children=diab_full_tab, className="dashboard-tab", selected_className="dashboard-tab--selected"),
+                dcc.Tab(label="Chronic Kidney Disease", value="tab-kidney", children=kidney_full_tab, className="dashboard-tab", selected_className="dashboard-tab--selected"),
             ]
         ),
-
-        # Footer
-        html.P(
-            "Multi-Model Health Analytics Dashboard • Machine Learning Decision Support",
-            style={"color": "#94a3b8", "textAlign": "center", "fontSize": "12px", "marginTop": "22px"}
-        ),
+        html.P("Multi-Model Health Analytics Dashboard • Machine Learning Decision Support", style={"color": "#94a3b8", "textAlign": "center", "fontSize": "12px", "marginTop": "22px"}),
     ], style={"maxWidth": "1260px"}, fluid=True),
 ], style={"background": PAGE_BG, "minHeight": "100vh", "padding": "26px 12px 42px"})
 
@@ -670,6 +928,7 @@ def update_overview_heart(selected_gender, age_range):
         format_chart_heart(bmi_fig),
         format_chart_heart(scatter_fig),
     )
+
 # --- Dataset 2: Diabetes ---
 @app.callback(
     Output("diab-patients-kpi", "children"),
@@ -752,10 +1011,159 @@ def update_explore_diab(gender, age_group, bmi_category, breakdown):
             format_chart_diab(pie_fig), format_chart_diab(hist_fig),
             format_chart_diab(scatter_fig), format_chart_diab(bar_fig))
 
+# --- Dataset 3: Chronic Kidney Disease ---
+@app.callback(
+    Output("kidney-patients-kpi", "children"),
+    Output("kidney-rate-kpi", "children"),
+    Output("kidney-age-kpi", "children"),
+    Output("kidney-creatinine-kpi", "children"),
+    Output("kidney-class-pie", "figure"),
+    Output("kidney-age-hist", "figure"),
+    Output("kidney-age-creatinine-scatter", "figure"),
+    Output("kidney-age-group-count", "figure"),
+    Input("kidney-age-filter", "value"),
+    Input("kidney-age-slider", "value"),
+)
+def update_kidney_overview(selected_age_group, min_age):
+
+    # Filter the kidney dataset
+    filtered = df_kidney[df_kidney["Age"] >= min_age].copy()
+
+    if selected_age_group != "All":
+        filtered = filtered[
+            filtered["Age_Group"] == selected_age_group
+        ]
+
+    # Handle empty filtered data
+    if filtered.empty:
+        empty_fig = format_chart_diab(
+            px.scatter(title="No data available for the selected filters")
+        )
+        return (
+            "0", "N/A", "N/A", "N/A",
+            empty_fig, empty_fig, empty_fig, empty_fig,
+        )
+
+    # KPI Cards
+    patients = f"{len(filtered):,}"
+
+    ckd_rate = (
+        filtered["Chronic_Kidney_Disease"].eq("si").mean()
+    )
+    ckd_rate = f"{ckd_rate:.1%}"
+
+    average_age = f"{filtered['Age'].mean():.1f} years"
+
+    average_creatinine = (
+        f"{filtered['Serum_Creatinine'].mean():.2f}"
+    )
+
+    # Display labels for the target
+    filtered["CKD_Result"] = filtered[
+        "Chronic_Kidney_Disease"
+    ].map({
+        "no": "No CKD",
+        "si": "CKD"
+    })
+
+    # 1. CKD Outcomes
+    pie_fig = px.pie(
+        filtered,
+        names="CKD_Result",
+        hole=0.58,
+        color="CKD_Result",
+        color_discrete_map={
+            "No CKD": HEALTHY,
+            "CKD": DIABETIC
+        },
+        category_orders={
+            "CKD_Result": ["No CKD", "CKD"]
+        },
+    )
+    pie_fig.update_traces(
+        textinfo="percent+label",
+        textposition="outside"
+    )
+    pie_fig.update_layout(showlegend=False)
+
+    # 2. Age Distribution
+    hist_fig = px.histogram(
+        filtered,
+        x="Age",
+        nbins=20,
+        color="CKD_Result",
+        color_discrete_map={
+            "No CKD": HEALTHY,
+            "CKD": DIABETIC
+        },
+        labels={"Age": "Age (years)"}
+    )
+    hist_fig.update_yaxes(title="Number of patients")
+
+    # 3. Age vs. Serum Creatinine
+    scatter_fig = px.scatter(
+        filtered,
+        x="Age",
+        y="Serum_Creatinine",
+        color="CKD_Result",
+        color_discrete_map={
+            "No CKD": HEALTHY,
+            "CKD": DIABETIC
+        },
+        opacity=0.7,
+        hover_data=[
+            "Blood_Urea",
+            "Hemoglobin",
+            "Blood_Pressure"
+        ],
+        labels={
+            "Age": "Age (years)",
+            "Serum_Creatinine": "Serum Creatinine",
+            "CKD_Result": "CKD Result"
+        },
+    )
+
+    # 4. Patients by Age Group
+    count_fig = px.histogram(
+        filtered,
+        x="Age_Group",
+        color="CKD_Result",
+        barmode="group",
+        color_discrete_map={
+            "No CKD": HEALTHY,
+            "CKD": DIABETIC
+        },
+        category_orders={
+            "Age_Group": [
+                "child",
+                "young_adult",
+                "middle_aged",
+                "senior"
+            ]
+        },
+        labels={
+            "Age_Group": "Age Group",
+            "CKD_Result": "CKD Result"
+        },
+    )
+    count_fig.update_yaxes(title="Number of patients")
+    count_fig.update_xaxes(tickangle=-15)
+
+    return (
+        patients,
+        ckd_rate,
+        average_age,
+        average_creatinine,
+        format_chart_diab(pie_fig),
+        format_chart_diab(hist_fig),
+        format_chart_diab(scatter_fig),
+        format_chart_diab(count_fig),
+    )
 
 # ============================================================
 # 7. CALLBACK 2: UPDATE THE MODEL EVALUATION TAB
 # ============================================================
+
 # --- Dataset 1: Heart Disease ---
 @app.callback(
     Output("heart-accuracy-kpi", "children"),
@@ -930,6 +1338,113 @@ def update_model_diab(threshold):
     return (f"{accuracy:.1%}", f"{precision:.1%}", f"{recall:.1%}", f"{f1:.1%}",
             format_chart_diab(confusion_fig), format_chart_diab(roc_fig),
             format_chart_diab(prob_fig), format_chart_diab(importance_fig))
+
+# --- Dataset 3: Chronic Kidney Disease ---
+@app.callback(
+    Output("kidney-accuracy-kpi", "children"),
+    Output("kidney-precision-kpi", "children"),
+    Output("kidney-recall-kpi", "children"),
+    Output("kidney-f1-kpi", "children"),
+    Output("kidney-confusion-heatmap", "figure"),
+    Output("kidney-roc-line", "figure"),
+    Input("kidney-threshold-slider", "value"),
+)
+def update_model_kidney(threshold):
+    # Predictions based on selected threshold.
+    predictions = (
+        test_probability_kidney >= threshold
+    ).astype(int)
+    # Evaluation metrics.
+    accuracy = accuracy_score(y_test_k, predictions)
+    precision = precision_score(
+        y_test_k, predictions, zero_division=0
+    )
+    recall = recall_score(
+        y_test_k, predictions, zero_division=0
+    )
+    f1 = f1_score(
+        y_test_k, predictions, zero_division=0
+    )
+    # Confusion Matrix.
+    labels = ["No CKD", "CKD"]
+    matrix = confusion_matrix(
+        y_test_k,
+        predictions,
+        labels=[0, 1]
+    )
+    confusion_fig = px.imshow(
+        matrix,
+        x=labels,
+        y=labels,
+        text_auto=True,
+        aspect="auto",
+        color_continuous_scale=[
+            [0, "#eef5f6"],
+            [1, KIDNEY_ACCENT]
+        ],
+        labels={
+            "x": "Predicted",
+            "y": "Actual",
+            "color": "Patients"
+        },
+    )
+    confusion_fig.update_traces(
+        textfont={"size": 20}
+    )
+    confusion_fig.update_layout(
+        coloraxis_showscale=False
+    )
+    # Calculate the operating point for the selected threshold.
+    tn, fp, fn, tp = matrix.ravel()
+    point_fpr = fp / (fp + tn) if (fp + tn) else 0
+    point_tpr = tp / (tp + fn) if (tp + fn) else 0
+    # ROC Curve.
+    roc_fig = px.line(
+        x=fpr_k,
+        y=tpr_k,
+        labels={
+            "x": "False Positive Rate",
+            "y": "True Positive Rate"
+        }
+    )
+    roc_fig.update_traces(
+        line={
+            "color": KIDNEY_ACCENT,
+            "width": 3
+        },
+        name=f"ROC-AUC {auc_kidney:.3f}",
+        showlegend=True
+    )
+    roc_fig.add_scatter(
+        x=[0, 1],
+        y=[0, 1],
+        mode="lines",
+        name="Random Guess",
+        line={
+            "color": "#b3c0c7",
+            "dash": "dash"
+        }
+    )
+    roc_fig.add_scatter(
+        x=[point_fpr],
+        y=[point_tpr],
+        mode="markers",
+        name=f"Threshold {threshold:.2f}",
+        marker={
+            "color": KIDNEY_DISEASE,
+            "size": 12
+        }
+    )
+    roc_fig.update_xaxes(range=[0, 1])
+    roc_fig.update_yaxes(range=[0, 1.03])
+    return (
+        f"{accuracy:.1%}",
+        f"{precision:.1%}",
+        f"{recall:.1%}",
+        f"{f1:.1%}",
+        format_chart_kidney(confusion_fig),
+        format_chart_kidney(roc_fig)
+    )
 
 # ============================================================
 # 8. RUN THE APP
