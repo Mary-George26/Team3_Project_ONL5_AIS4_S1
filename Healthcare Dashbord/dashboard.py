@@ -93,7 +93,7 @@ def dropdown_options(column, all_label):
     ]
 
 # --- Dataset 3: Chronic Kidney Disease ---
-KIDNEY_FILE = Path(__file__).with_name("kidney_cleaning.csv")
+KIDNEY_FILE = Path(__file__).with_name("kidney_cleaned.csv")
 if not KIDNEY_FILE.exists():
     raise FileNotFoundError(f"Put kidney_cleaned.csv next to this script: {KIDNEY_FILE}")
 
@@ -212,196 +212,386 @@ auc_kidney = roc_auc_score(
     test_probability_kidney
 )
 
+# ============================================================
+# 4. DASH APP + UNIFIED PREMIUM DESIGN SYSTEM
+# ============================================================
 
-# ============================================================
-# 4. DASH APP + SIMPLE STYLING
-# ============================================================
-FONT_URL = "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap"
-app = Dash(__name__, external_stylesheets=[dbc.themes.FLATLY, FONT_URL])
+FONT_URL = (
+    "https://fonts.googleapis.com/css2?"
+    "family=IBM+Plex+Sans:wght@400;500;600;700;800&display=swap"
+)
+app = Dash(
+    __name__,
+    external_stylesheets=[dbc.themes.FLATLY, FONT_URL]
+)
 app.title = "Health Intelligence Dashboard"
-
-# --- Dataset 1: Heart Disease ---
-BLUE = "#2563eb"
-DARK = "#17243a"
-TEAL = "#16a6a0"
-RED = "#ef7079"
-MUTED_HEART = "#758399"
-PAPER = "#ffffff"
-
+BG = "#0B1220"
+CARD_BG = "#151F32"
+CARD_BG_HOVER = "#1B2940"
+BORDER = "#26354B"
+TEXT = "#F1F5F9"
+MUTED = "#94A3B8"
+GRID = "#26354B"
+WHITE = "#FFFFFF"
+# Main accent colors
+BLUE = "#60A5FA"
+TEAL = "#34D399"
+RED = "#FB7185"
+PURPLE = "#A78BFA"
+CYAN = "#22D3EE"
+AMBER = "#FBBF24"
+# Compatibility aliases for existing code
+DARK = TEXT
+PAPER = CARD_BG
+LINE = BORDER
+PAGE_BG = BG
+INK = TEXT
+ACCENT = TEAL
+HEALTHY = CYAN
+DIABETIC = RED
+MUTED_DIAB = MUTED
+MUTED_HEART = MUTED
+KIDNEY_HEALTHY = TEAL
+KIDNEY_DISEASE = RED
+KIDNEY_ACCENT = PURPLE
+KIDNEY_MUTED = MUTED
+# Heart Disease
 RESULT_COLORS_HEART = {
     "No Cardiovascular Disease": TEAL,
     "Cardiovascular Disease": RED
 }
-
-PANEL_HEART = {
-    "background": PAPER,
-    "border": "1px solid #e7edf5",
-    "borderRadius": "18px",
+HEART_COLORWAY = [
+    TEAL, RED, BLUE, PURPLE, AMBER, CYAN
+]
+# Diabetes
+RESULT_COLORS_DIAB = {
+    "No diabetes": CYAN,
+    "Diabetes": RED
+}
+DIAB_COLORWAY = [
+    CYAN, RED, TEAL, AMBER, PURPLE, BLUE
+]
+# Chronic Kidney Disease
+RESULT_COLORS_KIDNEY = {
+    "Healthy": TEAL,
+    "CKD": RED
+}
+KIDNEY_COLORWAY = [
+    PURPLE, TEAL, RED, CYAN, AMBER, BLUE
+]
+PANEL_STYLE = {
+    "background": CARD_BG,
+    "border": f"1px solid {BORDER}",
+    "borderRadius": "16px",
     "padding": "20px",
     "height": "100%",
-    "boxShadow": "0 6px 20px rgba(27,53,91,0.04)",
+    "boxShadow": "0 8px 24px rgba(0,0,0,0.18)",
+    "transition": "all 0.25s ease"
 }
-
-def metric_card_heart(title, value_id, accent=BLUE):
-    return html.Div([
-        html.Div(style={"width": "31px", "height": "4px", "background": accent, "borderRadius": "8px", "marginBottom": "15px"}),
-        html.Div(title, style={"fontSize": "12px", "fontWeight": "700", "textTransform": "uppercase", "letterSpacing": "1px", "color": MUTED_HEART}),
-        html.H3(id=value_id, children="—", style={"fontWeight": "800", "marginTop": "8px", "marginBottom": "0", "fontSize": "29px"}),
-    ], style=PANEL_HEART)
-
-def chart_panel_heart(title, subtitle, graph_id, height=315):
-    return html.Div([
-        html.H5(title, style={"fontWeight": "750", "fontSize": "17px", "marginBottom": "3px"}),
-        html.P(subtitle, style={"color": MUTED_HEART, "fontSize": "12px", "marginBottom": "8px"}),
-        dcc.Graph(id=graph_id, style={"height": f"{height}px"}, config={"displayModeBar": False, "responsive": True}),
-    ], style=PANEL_HEART)
-
-def format_chart_heart(fig):
-    fig.update_layout(
-        template="plotly_white", paper_bgcolor="white", plot_bgcolor="white",
-        font={"family": "Arial, sans-serif", "color": DARK, "size": 12},
-        margin={"l": 25, "r": 20, "t": 18, "b": 25},
-        legend={"orientation": "h", "y": -0.22, "x": 0},
-        colorway=[BLUE, TEAL, RED, "#f6bd60"],
-    )
-    fig.update_xaxes(showgrid=False, linecolor="#e3eaf2")
-    fig.update_yaxes(gridcolor="#edf2f7", zeroline=False)
-    return fig
-
-# --- Dataset 2: Diabetes ---
-INK = "#12303a"
-ACCENT = "#0f6b75"
-HEALTHY = "#5fa8bd"
-DIABETIC = "#e0522d"
-AMBER = "#e9a93a"
-MUTED_DIAB = "#62767f"
-LINE = "#dbe4e7"
-PAGE_BG = "#eef3f4"
-RESULT_COLORS_DIAB = {"No diabetes": HEALTHY, "Diabetes": DIABETIC}
-
-PANEL_DIAB = {"background": "white", "border": f"1px solid {LINE}", "borderRadius": "10px", "padding": "18px 20px", "height": "100%"}
-
-def metric_card_diab(title, value_id, color=ACCENT, hint=None):
+PANEL_HEART = PANEL_STYLE
+PANEL_DIAB = PANEL_STYLE
+def metric_card_base(title, value_id, accent=TEAL, hint=None):
     children = [
-        html.Div(title, style={"fontSize": "13px", "color": MUTED_DIAB, "marginBottom": "6px"}),
-        html.Div(id=value_id, children="-", style={"fontWeight": "600", "fontSize": "30px", "lineHeight": "1.1", "color": INK}),
-    ]
+        html.Div(
+            style={
+                "width": "38px",
+                "height": "4px",
+                "background": accent,
+                "borderRadius": "10px",
+                "marginBottom": "16px",
+                "boxShadow": f"0 0 12px {accent}55"}),
+        html.Div(
+            title,
+            style={
+                "fontSize": "11px",
+                "fontWeight": "700",
+                "textTransform": "uppercase",
+                "letterSpacing": "1.1px",
+                "color": MUTED,
+                "marginBottom": "8px"}),
+        html.H3(
+            id=value_id,
+            children="—",
+            style={
+                "fontWeight": "800",
+                "fontSize": "30px",
+                "color": TEXT,
+                "margin": "0",
+                "letterSpacing": "-0.7px"})]
     if hint:
-        children.append(html.Div(hint, style={"fontSize": "12px", "color": MUTED_DIAB, "marginTop": "6px"}))
-    return html.Div(children, style={**PANEL_DIAB, "borderLeft": f"5px solid {color}"})
-
-def chart_panel_diab(title, subtitle, graph_id, height=320):
+        children.append(
+            html.Div(
+                hint,
+                style={
+                    "fontSize": "12px",
+                    "color": MUTED,
+                    "marginTop": "8px"}))
+    return html.Div(children, style=PANEL_STYLE)
+# Keep existing function names for compatibility
+def metric_card_heart(title, value_id, accent=BLUE):
+    return metric_card_base(title, value_id, accent)
+def metric_card_diab(title, value_id, color=ACCENT, hint=None):
+    return metric_card_base(title, value_id, color, hint)
+def metric_card_kidney(title, component_id, color):
+    return metric_card_base(title, component_id, color)
+def chart_panel_base(title, subtitle, graph_id, height=340):
     return html.Div([
-        html.H5(title, style={"fontWeight": "600", "fontSize": "16px", "marginBottom": "2px"}),
-        html.P(subtitle, style={"color": MUTED_DIAB, "fontSize": "13px", "marginBottom": "8px"}),
-        dcc.Graph(id=graph_id, style={"height": f"{height}px"}, config={"displayModeBar": False, "responsive": True}),
-    ], style=PANEL_DIAB)
-
-def format_chart_diab(fig):
+        html.Div(
+            title,
+            style={
+                "fontWeight": "750",
+                "fontSize": "16px",
+                "color": TEXT,
+                "marginBottom": "5px"}),
+        html.P(
+            subtitle,
+            style={
+                "color": MUTED,
+                "fontSize": "12px",
+                "lineHeight": "1.6",
+                "marginBottom": "12px"}),
+        dcc.Graph(
+            id=graph_id,
+            style={"height": f"{height}px"},
+            config={
+                "displayModeBar": True,
+                "displaylogo": False,
+                "responsive": True,
+                "modeBarButtonsToRemove": [
+                    "lasso2d",
+                    "select2d"]})], style=PANEL_STYLE)
+# Keep existing function names and signatures
+def chart_panel_heart(title, subtitle, graph_id, height=340):
+    return chart_panel_base(title, subtitle, graph_id, height)
+def chart_panel_diab(title, subtitle, graph_id, height=340):
+    return chart_panel_base(title, subtitle, graph_id, height)
+def chart_panel_kidney(title, subtitle, graph_id):
+    return chart_panel_base(title, subtitle, graph_id, 340)
+def format_chart_base(fig, colorway=None):
+    if colorway is None:
+        colorway = [TEAL, BLUE, RED, PURPLE, CYAN, AMBER]
     fig.update_layout(
-        template="plotly_white", paper_bgcolor="white", plot_bgcolor="white",
-        font={"family": "IBM Plex Sans, Arial, sans-serif", "color": INK, "size": 12},
-        margin={"l": 25, "r": 20, "t": 14, "b": 25},
-        legend={"orientation": "h", "y": -0.22, "x": 0, "title": None},
-        colorway=[HEALTHY, DIABETIC, ACCENT, "#f2b84b"],
-    )
-    fig.update_xaxes(showgrid=False, linecolor=LINE)
-    fig.update_yaxes(gridcolor="#eaf0f2", zeroline=False)
+        template="plotly_dark",
+        paper_bgcolor=CARD_BG,
+        plot_bgcolor=CARD_BG,
+        font={
+            "family": "IBM Plex Sans, Arial, sans-serif",
+            "color": TEXT,
+            "size": 13,  
+        },
+        margin={"l": 50, "r": 30, "t": 40, "b": 55},  
+        colorway=colorway,
+        legend={
+            "orientation": "h",
+            "y": -0.22,
+            "x": 0,
+            "title": None,
+            "font": {"size": 12, "color": TEXT},  
+            "bgcolor": "rgba(0,0,0,0)",
+        },
+        hoverlabel={
+            "bgcolor": "#0F172A",
+            "bordercolor": TEAL,
+            "font": {
+                "family": "IBM Plex Sans, Arial, sans-serif",
+                "color": WHITE,
+                "size": 13,
+            },
+        },
+        hovermode="closest",)
+    fig.update_xaxes(
+        showgrid=False,
+        showline=True,
+        linecolor=BORDER,
+        linewidth=1.2,
+        tickfont={"color": TEXT, "size": 12},  
+        title_font={"color": TEXT, "size": 13},
+        zeroline=False,)
+    fig.update_yaxes(
+        showgrid=True,
+        gridcolor=GRID,
+        gridwidth=0.8,
+        tickfont={"color": TEXT, "size": 12},
+        title_font={"color": TEXT, "size": 13},
+        zeroline=False,)
+    fig.update_traces(
+        selector=dict(type="pie"),
+        textfont={"size": 13, "color": "#0B1220"},
+        textinfo="percent+label",)
     return fig
-
+# Dataset-specific wrappers
+def format_chart_heart(fig):
+    return format_chart_base(fig, HEART_COLORWAY)
+def format_chart_diab(fig):
+    return format_chart_base(fig, DIAB_COLORWAY)
+def format_chart_kidney(fig):
+    return format_chart_base(fig, KIDNEY_COLORWAY)
 def empty_figure_diab(message="No patients match these filters"):
     fig = px.scatter()
-    fig.add_annotation(text=message, showarrow=False, font={"size": 14, "color": MUTED_DIAB})
+    fig.add_annotation(
+        text=message,
+        showarrow=False,
+        font={
+            "size": 14,
+            "color": MUTED})
     fig.update_xaxes(visible=False)
     fig.update_yaxes(visible=False)
     return format_chart_diab(fig)
-
-
 app.index_string = app.index_string.replace(
     "</head>",
-    f"""<style>
-      body {{ background: {PAGE_BG}; }}
-      .dashboard-tabs {{ border-bottom: {LINE}; margin-bottom: 22px; }}
-      .dashboard-tab {{ border: 0 !important; background: transparent !important; padding: 16px 23px !important; font-weight: 600; color: {MUTED_DIAB} !important; }}
-      .dashboard-tab--selected {{ border-bottom: 3px solid {ACCENT} !important; color: {ACCENT} !important; font-weight: 700; }}
-      .Select-control {{ border-radius: 8px; border-color: {LINE}; min-height: 40px; }}
-      .dash-dropdown {{ border-radius: 8px; }}
-      .rc-slider-track {{ background-color: {ACCENT}; }}
-      .rc-slider-handle {{ border-color: {ACCENT}; }}
-      input[type=number] {{ width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid {LINE}; }}
-    </style></head>""",
+    f"""
+    <style>
+        /* Main Page */
+        body {{
+            background: {BG};
+            color: {TEXT};
+            font-family: 'IBM Plex Sans', Arial, sans-serif;}}
+        .container-fluid {{
+            background: {BG};}}
+        /* Dashboard Tabs */
+        .dashboard-tabs {{
+            border-bottom: 1px solid {BORDER};
+            margin-bottom: 24px;
+            gap: 8px;}}
+        .dashboard-tab {{
+            border: 0 !important;
+            background: transparent !important;
+            padding: 15px 22px !important;
+            font-weight: 600;
+            color: {MUTED} !important;
+            transition: all 0.2s ease;}}
+        .dashboard-tab:hover {{
+            color: {TEXT} !important;}}
+        .dashboard-tab--selected {{
+            border-bottom: 3px solid {TEAL} !important;
+            color: {TEAL} !important;
+            font-weight: 700;}}
+        /* Labels */
+        label, .form-label {{
+            color: {TEXT} !important;
+            font-weight: 600;
+            font-size: 13px;
+            margin-bottom: 6px;}}
+        .dash-dropdown,
+        .dash-dropdown *,
+        [class*="dash-dropdown"],
+        [class*="dash-dropdown"] * {{
+            color: #0F172A !important;}}
+        .dash-dropdown [class*="control"],
+        .dash-dropdown [class*="menu"],
+        .dash-dropdown [class*="option"],
+        .dash-dropdown input {{
+            background-color: #FFFFFF !important;
+            color: #0F172A !important;}}
+        .dash-dropdown [class*="option"]:hover {{
+            background-color: #E2E8F0 !important;
+            color: #0F172A !important;}}
+        /* Sliders & RangeSlider */
+        .rc-slider-track {{
+            background-color: {TEAL} !important;
+        }}
+        .rc-slider-handle,
+        .rc-slider-dot-active {{
+            border-color: {TEAL} !important;
+            background-color: {CARD_BG} !important;
+        }}
+        [class*="slider"] [class*="mark"],
+        [class*="slider"] [class*="Mark"],
+        [class*="Slider"] [class*="mark"],
+        [class*="Slider"] [class*="Mark"],
+        .rc-slider-mark-text,
+        .rc-slider-mark span,
+        [class*="rc-slider"] span {{
+            color: #F1F5F9 !important;
+            font-size: 12px !important;
+            font-weight: 600 !important;
+            opacity: 1 !important;
+        }}
+        .rc-slider-mark-text-active,
+        [class*="mark-active"],
+        [class*="Mark"][class*="active"] {{
+            color: #FFFFFF !important;
+            font-weight: 700 !important;
+        }}
+        /* Tooltips*/
+        [class*="slider"] [class*="tooltip"],
+        [class*="slider"] [class*="Tooltip"],
+        [class*="Slider"] [class*="tooltip"],
+        [class*="Slider"] [class*="Tooltip"],
+        .rc-slider-tooltip,
+        .rc-slider-tooltip-inner {{
+            background-color: #0F172A !important;
+            background: #0F172A !important;
+            color: {WHITE} !important;
+            border: 1px solid {TEAL} !important;
+            font-weight: 800 !important;
+            font-size: 12px !important;
+            padding: 4px 8px !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45) !important;
+        }}
+        [class*="slider"] [class*="tooltip"] *,
+        [class*="slider"] [class*="Tooltip"] *,
+        .rc-slider-tooltip *,
+        [class*="rc-slider"] [class*="tooltip"] *,
+        [class*="rc-slider"] [class*="Tooltip"] * {{
+            color: {WHITE} !important;
+            background-color: transparent !important;
+        }}
+        /* Number Inputs */
+        input[type=number] {{
+            width: 100%;
+            padding: 9px 12px;
+            border-radius: 8px;
+            border: 1px solid {BORDER};
+            background: {CARD_BG};
+            color: {TEXT};
+        }}
+        input[type=number]:focus {{
+            outline: none;
+            border-color: {TEAL};
+        }}
+        /* Scrollbar */
+        ::-webkit-scrollbar {{
+            width: 8px;
+            height: 8px;
+        }}
+        ::-webkit-scrollbar-track {{
+            background: {BG};
+        }}
+        ::-webkit-scrollbar-thumb {{
+            background: {BORDER};
+            border-radius: 10px;
+        }}
+        ::-webkit-scrollbar-thumb:hover {{
+            background: {MUTED};
+        }}
+        .dash-slider-mark,
+        .dash-slider-mark-outside-selection,
+        .dash-slider-mark *,
+        .dash-slider-mark-outside-selection * {{
+            color: #F1F5F9 !important;
+            font-size: 12px !important;
+            font-weight: 600 !important;
+            opacity: 1 !important;
+        }}
+        .dash-slider-mark:not(.dash-slider-mark-outside-selection) {{
+            color: {TEAL} !important;
+            font-weight: 700 !important;
+        }}
+    </style>
+    </head>
+    """
 )
-
-# --- Dataset 3: Chronic Kidney Disease ---
-KIDNEY_HEALTHY = "#16a6a0"
-KIDNEY_DISEASE = "#ef7079"
-KIDNEY_ACCENT = "#2563eb"
-KIDNEY_MUTED = "#758399"
-def format_chart_kidney(fig):
-    fig.update_layout(
-        template="plotly_white",
-        paper_bgcolor="white",
-        plot_bgcolor="white",
-        font=dict(family="Arial"),
-        margin=dict(l=20, r=20, t=45, b=20),
-    )
-    return fig
-def metric_card_kidney(title, component_id, color):
-    return dbc.Card(
-        dbc.CardBody([
-            html.P(
-                title,
-                style={
-                    "color": KIDNEY_MUTED,
-                    "fontSize": "13px",
-                    "marginBottom": "8px"
-                }
-            ),
-            html.H3(
-                id=component_id,
-                children="—",
-                style={
-                    "fontWeight": "800",
-                    "color": color,
-                    "margin": "0"
-                }
-            ),
-        ]),
-        style={
-            "border": "none",
-            "borderRadius": "16px",
-            "boxShadow": "0 4px 15px rgba(0,0,0,0.05)",
-            "background": "white"
-        }
-    )
-def chart_panel_kidney(title, subtitle, graph_id):
-    return dbc.Card(
-        dbc.CardBody([
-            html.H5(title, style={"fontWeight": "700"}),
-            html.P(
-                subtitle,
-                style={"color": KIDNEY_MUTED, "fontSize": "13px"}
-            ),
-            dcc.Graph(id=graph_id)
-        ]),
-        style={
-            "border": "none",
-            "borderRadius": "16px",
-            "boxShadow": "0 4px 15px rgba(0,0,0,0.05)",
-            "background": "white"
-        }
-    )
 
 # ============================================================
 # 5. DASHBOARD LAYOUT
 # ============================================================
 # --- Dataset 1: Heart Disease ---
 overview_tab_heart = html.Div([
-    # Heart filters
     html.Div([
         dbc.Row([
             dbc.Col([
-                html.Label("Gender"),
+                html.Label("Gender", style={"fontWeight": "600", "marginBottom": "8px"}),
                 dcc.Dropdown(
                     id="heart-gender-filter",
                     options=[
@@ -413,9 +603,8 @@ overview_tab_heart = html.Div([
                     clearable=False,
                 ),
             ], lg=5),
-
             dbc.Col([
-                html.Label("Age range"),
+                html.Label("Age Range", style={"fontWeight": "600", "marginBottom": "8px"}),
                 dcc.RangeSlider(
                     id="heart-age-slider",
                     min=int(df_heart["age_years"].min()),
@@ -428,36 +617,111 @@ overview_tab_heart = html.Div([
                     tooltip={"placement": "bottom", "always_visible": True},
                 ),
             ], lg=7),
-        ]),
-    ], style={**PANEL_HEART, "marginBottom": "18px"}),
-
-    # KPI Cards
+        ], align="center"),
+    ], style={**PANEL_HEART, "marginBottom": "20px"}),
     dbc.Row([
-        dbc.Col(metric_card_heart("Total Patients", "heart-patients-kpi", BLUE), lg=3, sm=6, className="mb-3"),
-        dbc.Col(metric_card_heart("Disease Rate", "heart-disease-kpi", RED), lg=3, sm=6, className="mb-3"),
-        dbc.Col(metric_card_heart("Average Age", "heart-age-kpi", TEAL), lg=3, sm=6, className="mb-3"),
-        dbc.Col(metric_card_heart("Average Systolic BP", "heart-bp-kpi", "#f6a34d"), lg=3, sm=6, className="mb-3"),
+        dbc.Col(
+            metric_card_heart("Total Patients", "heart-patients-kpi", BLUE),
+            lg=3, sm=6, className="mb-3"
+        ),
+        dbc.Col(
+            metric_card_heart("Disease Rate", "heart-disease-kpi", RED),
+            lg=3, sm=6, className="mb-3"
+        ),
+        dbc.Col(
+            metric_card_heart("Average Age", "heart-age-kpi", TEAL),
+            lg=3, sm=6, className="mb-3"
+        ),
+        dbc.Col(
+            metric_card_heart("Average Systolic BP", "heart-bp-kpi", "#f6a34d"),
+            lg=3, sm=6, className="mb-3"
+        ),
+    ]),
+    dbc.Row([
+        dbc.Col(
+            chart_panel_heart(
+                "Cardiovascular Disease Distribution",
+                "Proportion of patients with and without cardiovascular disease",
+                "heart-cardio-pie"
+            ),
+            lg=5, className="mb-3"
+        ),
+        dbc.Col(
+            chart_panel_heart(
+                "Age Distribution",
+                "Distribution of patients across different ages",
+                "heart-age-hist"
+            ),
+            lg=7, className="mb-3"
+        ),
+    ]),
+    dbc.Row([
+        dbc.Col(
+            chart_panel_heart(
+                "Blood Pressure vs. Disease Status",
+                "Comparison of systolic blood pressure between the two groups",
+                "heart-bp-box"
+            ),
+            lg=7, className="mb-3"
+        ),
+        dbc.Col(
+            chart_panel_heart(
+                "Cholesterol Levels",
+                "Cholesterol categories by cardiovascular disease status",
+                "heart-cholesterol-count"
+            ),
+            lg=5, className="mb-3"
+        ),
+    ]),
+    dbc.Row([
+        dbc.Col(
+            chart_panel_heart(
+                "BMI Distribution",
+                "BMI distribution among patients by disease status",
+                "heart-bmi-hist"
+            ),
+            lg=6, className="mb-3"
+        ),
+        dbc.Col(
+            chart_panel_heart(
+                "Age vs. Systolic Blood Pressure",
+                "Relationship between age and systolic blood pressure",
+                "heart-age-bp-scatter"
+            ),
+            lg=6, className="mb-3"
+        ),
+    ]),
+    dbc.Row([
+        dbc.Col(
+            chart_panel_heart(
+                "Disease Rate by Age Group",
+                "Percentage of patients with cardiovascular disease in each age group",
+                "heart-age-disease-rate"
+            ),
+            lg=6, className="mb-3"
+        ),
+        dbc.Col(
+            chart_panel_heart(
+                "BMI by Disease Status",
+                "Comparison of BMI distribution using violin plots",
+                "heart-bmi-violin"
+            ),
+            lg=6, className="mb-3"
+        ),
+    ]),
+    dbc.Row([
+        dbc.Col(
+            chart_panel_heart(
+                "Health Indicators Correlation",
+                "Correlation between numerical health indicators and cardiovascular disease",
+                "heart-correlation-heatmap",
+                height=450
+            ),
+            lg=12, className="mb-3"
+        ),
     ]),
 
-    # First row of charts
-    dbc.Row([
-        dbc.Col(chart_panel_heart("Cardiovascular Disease Distribution", "Number of patients with and without cardiovascular disease", "heart-cardio-pie"), lg=5, className="mb-3"),
-        dbc.Col(chart_panel_heart("Age Distribution", "Distribution of patients by age", "heart-age-hist"), lg=7, className="mb-3"),
-    ]),
-
-    # Second row of charts
-    dbc.Row([
-        dbc.Col(chart_panel_heart("Blood Pressure vs. Cardiovascular Disease", "Comparison of systolic blood pressure between the two classes", "heart-bp-box"), lg=7, className="mb-3"),
-        dbc.Col(chart_panel_heart("Cholesterol Levels", "Cholesterol distribution by disease status", "heart-cholesterol-count"), lg=5, className="mb-3"),
-    ]),
-
-    # Third row
-    dbc.Row([
-        dbc.Col(chart_panel_heart("BMI Distribution", "Body Mass Index distribution among patients", "heart-bmi-hist"), lg=6, className="mb-3"),
-        dbc.Col(chart_panel_heart("Age vs. Systolic Blood Pressure", "Relationship between age and systolic blood pressure", "heart-age-bp-scatter"), lg=6, className="mb-3"),
-    ]),
 ])
-
 model_tab_heart = html.Div([
     # Decision threshold
     html.Div([
@@ -499,15 +763,26 @@ model_tab_heart = html.Div([
         dbc.Col(chart_panel_heart("Predicted Probabilities", "Predicted probabilities grouped by actual outcome", "heart-prob-hist"), className="mb-3"),
     ]),
 ])
-
 heart_full_tab = html.Div([
     dcc.Tabs(
         id="heart-sub-tabs",
         value="heart-explore",
         className="dashboard-tabs",
         children=[
-            dcc.Tab(label="01 Explore the Data", value="heart-explore", children=overview_tab_heart, className="dashboard-tab", selected_className="dashboard-tab--selected"),
-            dcc.Tab(label="02 Evaluate the Model", value="heart-evaluate", children=model_tab_heart, className="dashboard-tab", selected_className="dashboard-tab--selected"),
+            dcc.Tab(
+                label="01 Explore the Data",
+                value="heart-explore",
+                children=overview_tab_heart,
+                className="dashboard-tab",
+                selected_className="dashboard-tab--selected"
+            ),
+            dcc.Tab(
+                label="02 Evaluate the Model",
+                value="heart-evaluate",
+                children=model_tab_heart,
+                className="dashboard-tab",
+                selected_className="dashboard-tab--selected"
+            ),
         ]
     )
 ])
@@ -515,33 +790,171 @@ heart_full_tab = html.Div([
 # --- Dataset 2: Diabetes ---
 def field_diab(label, control, md=4):
     return dbc.Col([html.Label(label, style={"fontSize": "13px", "fontWeight": "600", "color": MUTED_DIAB, "marginBottom": "6px"}), control], md=md, className="mb-3")
-
 explore_tab_diab = html.Div([
-    html.Div(dbc.Row([
-        field_diab("Gender", dcc.Dropdown(id="diab-gender-filter", options=dropdown_options("gender", "All genders"), value="All", clearable=False)),
-        field_diab("Age group", dcc.Dropdown(id="diab-age-filter", options=dropdown_options("age_group", "All ages"), value="All", clearable=False)),
-        field_diab("BMI category", dcc.Dropdown(id="diab-bmi-filter", options=dropdown_options("bmi_category", "All BMI categories"), value="All", clearable=False)),
-    ], style={**PANEL_DIAB, "height": "auto", "marginBottom": "16px", "paddingBottom": "6px"})),
+    html.Div(
+        dbc.Row([
+            field_diab(
+                "Gender",
+                dcc.Dropdown(
+                    id="diab-gender-filter",
+                    options=dropdown_options("gender", "All genders"),
+                    value="All",
+                    clearable=False
+                )
+            ),
+            field_diab(
+                "Age Group",
+                dcc.Dropdown(
+                    id="diab-age-filter",
+                    options=dropdown_options("age_group", "All ages"),
+                    value="All",
+                    clearable=False
+                )
+            ),
+            field_diab(
+                "BMI Category",
+                dcc.Dropdown(
+                    id="diab-bmi-filter",
+                    options=dropdown_options("bmi_category", "All BMI categories"),
+                    value="All",
+                    clearable=False
+                )
+            ),
+        ]),
+        style={**PANEL_DIAB, "height": "auto", "marginBottom": "18px"}
+    ),
     dbc.Row([
-        dbc.Col(metric_card_diab("Patients in view", "diab-patients-kpi", ACCENT, "After the filters above"), lg=3, sm=6, className="mb-3"),
-        dbc.Col(metric_card_diab("Diabetes rate", "diab-rate-kpi", DIABETIC, f"All patients: {OVERALL_RATE:.1%}"), lg=3, sm=6, className="mb-3"),
-        dbc.Col(metric_card_diab("Average HbA1c (%)", "diab-hba1c-kpi", AMBER, "Diabetes cutoff: 6.5%"), lg=3, sm=6, className="mb-3"),
-        dbc.Col(metric_card_diab("Average blood glucose (mg/dL)", "diab-glucose-kpi", HEALTHY, "Average across the view"), lg=3, sm=6, className="mb-3"),
+        dbc.Col(
+            metric_card_diab(
+                "Patients in View",
+                "diab-patients-kpi",
+                ACCENT,
+                "After applying filters"
+            ),
+            lg=3, sm=6, className="mb-3"
+        ),
+        dbc.Col(
+            metric_card_diab(
+                "Diabetes Rate",
+                "diab-rate-kpi",
+                DIABETIC,
+                f"Overall rate: {OVERALL_RATE:.1%}"
+            ),
+            lg=3, sm=6, className="mb-3"
+        ),
+        dbc.Col(
+            metric_card_diab(
+                "Average HbA1c",
+                "diab-hba1c-kpi",
+                AMBER,
+                "Measured in %"
+            ),
+            lg=3, sm=6, className="mb-3"
+        ),
+        dbc.Col(
+            metric_card_diab(
+                "Average Blood Glucose",
+                "diab-glucose-kpi",
+                HEALTHY,
+                "Measured in mg/dL"
+            ),
+            lg=3, sm=6, className="mb-3"
+        ),
     ]),
     dbc.Row([
-        dbc.Col(chart_panel_diab("Outcome balance", "Share of patients with and without diabetes", "diab-class-pie"), lg=4, className="mb-3"),
-        dbc.Col(chart_panel_diab("HbA1c by outcome", "Percent of each group at every HbA1c level", "diab-hba1c-hist"), lg=8, className="mb-3"),
+        dbc.Col(
+            chart_panel_diab(
+                "Diabetes Distribution",
+                "Proportion of patients with and without diabetes",
+                "diab-class-pie"
+            ),
+            lg=4, className="mb-3"
+        ),
+        dbc.Col(
+            chart_panel_diab(
+                "HbA1c Distribution by Outcome",
+                "Comparison of HbA1c levels between both groups",
+                "diab-hba1c-hist"
+            ),
+            lg=8, className="mb-3"
+        ),
     ]),
     dbc.Row([
-        dbc.Col(chart_panel_diab("Blood glucose vs. HbA1c", "A random sample of up to 3,000 patients from the view", "diab-glucose-scatter", height=360), lg=7, className="mb-3"),
-        dbc.Col(html.Div([
-            html.H5("Diabetes rate by group", style={"fontWeight": "600", "fontSize": "16px", "marginBottom": "2px"}),
-            html.P("Dashed line is the rate across all patients", style={"color": MUTED_DIAB, "fontSize": "13px", "marginBottom": "8px"}),
-            dcc.Dropdown(id="diab-breakdown-select", options=[{"label": v, "value": k} for k, v in BREAKDOWNS.items()], value="age_group", clearable=False, className="mb-2"),
-            dcc.Graph(id="diab-breakdown-bar", style={"height": "285px"}, config={"displayModeBar": False, "responsive": True}),
-        ], style=PANEL_DIAB), lg=5, className="mb-3"),
+        dbc.Col(
+            chart_panel_diab(
+                "Blood Glucose vs. HbA1c",
+                "Relationship between two important diabetes indicators",
+                "diab-glucose-scatter",
+                height=370
+            ),
+            lg=7, className="mb-3"
+        ),
+
+        dbc.Col(
+            html.Div([
+                html.H5(
+                    "Diabetes Rate by Group",
+                    style={"fontWeight": "600", "fontSize": "16px"}
+                ),
+                html.P(
+                    "Compare diabetes prevalence across patient groups",
+                    style={
+                        "color": MUTED_DIAB,
+                        "fontSize": "13px"
+                    }
+                ),
+                dcc.Dropdown(
+                    id="diab-breakdown-select",
+                    options=[
+                        {"label": v, "value": k}
+                        for k, v in BREAKDOWNS.items()
+                    ],
+                    value="age_group",
+                    clearable=False,
+                    className="mb-2"
+                ),
+                dcc.Graph(
+                    id="diab-breakdown-bar",
+                    style={"height": "285px"},
+                    config={"displayModeBar": False, "responsive": True}
+                )
+            ], style=PANEL_DIAB),
+            lg=5, className="mb-3"
+        ),
     ]),
-])
+    dbc.Row([
+        dbc.Col(
+            chart_panel_diab(
+                "BMI Distribution by Diabetes Status",
+                "Violin plot showing BMI distribution and density",
+                "diab-bmi-violin"
+            ),
+            lg=6, className="mb-3"
+        ),
+        dbc.Col(
+            chart_panel_diab(
+                "Risk Score by Outcome",
+                "Comparison of calculated risk scores between both groups",
+                "diab-risk-score-box"
+            ),
+            lg=6, className="mb-3"
+        ),
+    ]),
+
+    dbc.Row([
+        dbc.Col(
+            chart_panel_diab(
+                "Diabetes Rate by Smoking History",
+                "Comparison of diabetes prevalence across smoking groups",
+                "diab-smoking-rate"
+            ),lg=6, className="mb-3"),
+        dbc.Col(chart_panel_diab(
+                "Diabetes Rate by Health Conditions",
+                "How hypertension and heart disease coexist with diabetes",
+                "diab-comorbidity-rate"),lg=6, className="mb-3"),]),
+    dbc.Row([dbc.Col(chart_panel_diab("Health Indicators Correlation",
+                "Strength and direction of relationships between numerical variables",
+                "diab-correlation-heatmap",height=450),lg=12, className="mb-3"),]),])
 
 model_tab_diab = html.Div([
     html.Div(dbc.Row([
@@ -607,46 +1020,181 @@ diab_full_tab = html.Div([
 
 # --- Dataset 3: Chronic Kidney Disease ---
 explore_tab_kidney = html.Div([
-    html.Div(dbc.Row([
-        dbc.Col([
-            html.Label("Age Group", className="fw-bold mb-2"),
-            dcc.Dropdown(
-                id="kidney-age-filter",
-                options=[{"label": "All age groups", "value": "All"}] + [
-                    {"label": group.replace("_", " ").title(), "value": group}
-                    for group in ["child", "young_adult", "middle_aged", "senior"]
-                    if group in df_kidney["Age_Group"].unique()
-                ],
-                value="All", clearable=False,
-            ),
-        ], md=5, className="mb-3"),
-        dbc.Col([
-            html.Label("Minimum Age", className="fw-bold mb-2"),
-            dcc.Slider(
-                id="kidney-age-slider",
-                min=int(df_kidney["Age"].min()), max=int(df_kidney["Age"].max()),
-                step=1, value=int(df_kidney["Age"].min()),
-                marks={i: str(i) for i in range(int(df_kidney["Age"].min()), int(df_kidney["Age"].max()) + 1, 10)},
-                tooltip={"placement": "bottom", "always_visible": False},
-            ),
-        ], md=7, className="mb-3"),
-    ], align="center"), style={**PANEL_DIAB, "marginBottom": "18px"}),
-    dbc.Row([
-        dbc.Col(metric_card_diab("Patients in view", "kidney-patients-kpi", ACCENT), lg=3, sm=6, className="mb-3"),
-        dbc.Col(metric_card_diab("CKD Rate", "kidney-rate-kpi", DIABETIC), lg=3, sm=6, className="mb-3"),
-        dbc.Col(metric_card_diab("Average Age", "kidney-age-kpi", AMBER), lg=3, sm=6, className="mb-3"),
-        dbc.Col(metric_card_diab("Average Serum Creatinine", "kidney-creatinine-kpi", HEALTHY), lg=3, sm=6, className="mb-3"),
-    ]),
-    dbc.Row([
-        dbc.Col(chart_panel_diab("CKD Outcomes", "Class balance for patients with and without CKD", "kidney-class-pie"), lg=5, className="mb-3"),
-        dbc.Col(chart_panel_diab("Age Distribution", "Distribution of patients by age", "kidney-age-hist"), lg=7, className="mb-3"),
-    ]),
-    dbc.Row([
-        dbc.Col(chart_panel_diab("Age vs. Serum Creatinine", "Each dot represents one patient", "kidney-age-creatinine-scatter"), lg=7, className="mb-3"),
-        dbc.Col(chart_panel_diab("Patients by Age Group", "Number of patients in each age group", "kidney-age-group-count"), lg=5, className="mb-3"),
-    ]),
-])
+    html.Div([
+        dbc.Row([
+            dbc.Col([
+                html.Label("Age Group", className="fw-bold mb-2"),
+                dcc.Dropdown(
+                    id="kidney-age-filter",
+                    options=[
+                        {"label": "All age groups", "value": "All"}
+                    ] + [
+                        {
+                            "label": group.replace("_", " ").title(),
+                            "value": group
+                        }
+                        for group in [
+                            "child", "young_adult",
+                            "middle_aged", "senior"
+                        ]
+                        if group in df_kidney["Age_Group"].unique()
+                    ],
+                    value="All",
+                    clearable=False,
+                ),
+            ], md=5, className="mb-3"),
 
+            dbc.Col([
+                html.Label("Minimum Age", className="fw-bold mb-2"),
+                dcc.Slider(
+                    id="kidney-age-slider",
+                    min=int(df_kidney["Age"].min()),
+                    max=int(df_kidney["Age"].max()),
+                    step=1,
+                    value=int(df_kidney["Age"].min()),
+                    marks={
+                        i: str(i)
+                        for i in range(
+                            int(df_kidney["Age"].min()),
+                            int(df_kidney["Age"].max()) + 1,
+                            10
+                        )
+                    },
+                    tooltip={
+                        "placement": "bottom",
+                        "always_visible": False
+                    },
+                ),
+            ], md=7, className="mb-3"),
+
+        ], align="center")
+    ], style={**PANEL_DIAB, "marginBottom": "18px"}),
+    dbc.Row([
+        dbc.Col(
+            metric_card_diab(
+                "Patients in View",
+                "kidney-patients-kpi",
+                ACCENT
+            ),
+            lg=3, sm=6, className="mb-3"
+        ),
+        dbc.Col(
+            metric_card_diab(
+                "CKD Rate",
+                "kidney-rate-kpi",
+                DIABETIC
+            ),
+            lg=3, sm=6, className="mb-3"
+        ),
+        dbc.Col(
+            metric_card_diab(
+                "Average Age",
+                "kidney-age-kpi",
+                AMBER
+            ),
+            lg=3, sm=6, className="mb-3"
+        ),
+        dbc.Col(
+            metric_card_diab(
+                "Average Serum Creatinine",
+                "kidney-creatinine-kpi",
+                HEALTHY
+            ),
+            lg=3, sm=6, className="mb-3"
+        ),
+    ]),
+    dbc.Row([
+        dbc.Col(
+            chart_panel_diab(
+                "CKD Outcomes",
+                "Distribution of patients with and without kidney disease",
+                "kidney-class-pie"
+            ),
+            lg=5, className="mb-3"
+        ),
+        dbc.Col(
+            chart_panel_diab(
+                "Age Distribution",
+                "Patient age distribution by CKD outcome",
+                "kidney-age-hist"
+            ),
+            lg=7, className="mb-3"
+        ),
+    ]),
+    dbc.Row([
+        dbc.Col(
+            chart_panel_diab(
+                "Age vs. Serum Creatinine",
+                "Relationship between patient age and creatinine level",
+                "kidney-age-creatinine-scatter"
+            ),
+            lg=7, className="mb-3"
+        ),
+        dbc.Col(
+            chart_panel_diab(
+                "Patients by Age Group",
+                "Number of CKD and non-CKD patients in each age group",
+                "kidney-age-group-count"
+            ),
+            lg=5, className="mb-3"
+        ),
+    ]),
+    dbc.Row([
+        dbc.Col(
+            chart_panel_diab(
+                "Blood Urea by CKD Outcome",
+                "Comparison of blood urea levels between patient groups",
+                "kidney-urea-box"
+            ),
+            lg=6, className="mb-3"
+        ),
+        dbc.Col(
+            chart_panel_diab(
+                "Hemoglobin by CKD Outcome",
+                "Comparison of hemoglobin levels between patient groups",
+                "kidney-hemoglobin-box"
+            ),
+            lg=6, className="mb-3"
+        ),
+    ]),
+    dbc.Row([
+        dbc.Col(
+            chart_panel_diab(
+                "Albumin Distribution",
+                "Albumin levels across CKD outcome groups",
+                "kidney-albumin-hist"
+            ),
+            lg=6, className="mb-3"
+        ),
+        dbc.Col(
+            chart_panel_diab(
+                "CKD Rate by Blood Pressure Category",
+                "Percentage of CKD patients in each blood pressure group",
+                "kidney-bp-rate"
+            ),
+            lg=6, className="mb-3"
+        ),
+    ]),
+    dbc.Row([
+        dbc.Col(
+            chart_panel_diab(
+                "Blood Glucose vs. Serum Creatinine",
+                "Relationship between two important laboratory measurements",
+                "kidney-glucose-creatinine"
+            ),
+            lg=6, className="mb-3"
+        ),
+        dbc.Col(
+            chart_panel_diab(
+                "Clinical Features Correlation",
+                "Correlation between numerical clinical measurements and CKD",
+                "kidney-correlation-heatmap"
+            ),
+            lg=6, className="mb-3"
+        ),
+    ]),
+
+])
 kidney_model_tab = html.Div([
     # Threshold Filter
     html.Div([
@@ -797,64 +1345,86 @@ app.layout = html.Div([
     Output("heart-cholesterol-count", "figure"),
     Output("heart-bmi-hist", "figure"),
     Output("heart-age-bp-scatter", "figure"),
-    Input("heart-gender-filter", "value"), 
+    Output("heart-age-disease-rate", "figure"),
+    Output("heart-bmi-violin", "figure"),
+    Output("heart-correlation-heatmap", "figure"),
+    Input("heart-gender-filter", "value"),
     Input("heart-age-slider", "value"),
 )
-def update_overview_heart(selected_gender, age_range):
 
-    # Apply filters on df_heart
+def update_overview_heart(selected_gender, age_range):
     filtered = df_heart[
         (df_heart["age_years"] >= age_range[0]) &
         (df_heart["age_years"] <= age_range[1])
     ].copy()
-
     if selected_gender != "All":
-        filtered = filtered[filtered["gender"] == int(selected_gender)]
-        
-    
-    # KPI values
+        filtered = filtered[
+            filtered["gender"] == int(selected_gender)
+        ]
+    if filtered.empty:
+        empty_figs = []
+        for _ in range(9):
+            fig = px.scatter()
+            fig.add_annotation(
+                text="No patients match these filters",
+                showarrow=False,
+                font={"size": 14}
+            )
+            fig.update_xaxes(visible=False)
+            fig.update_yaxes(visible=False)
+            empty_figs.append(format_chart_heart(fig))
+        return (
+            "0",
+            "—",
+            "—",
+            "—",
+            *empty_figs
+        )
     patients = f"{len(filtered):,}"
     disease_rate = f"{filtered['cardio'].mean():.1%}"
     avg_age = f"{filtered['age_years'].mean():.1f} years"
     avg_bp = f"{filtered['ap_hi'].mean():.1f} mmHg"
-
-    # Disease distribution
-    filtered["cardio_txt"] = filtered["cardio"].map({0: "No Disease", 1: "Cardiovascular Disease"})
-
+    filtered["cardio_txt"] = filtered["cardio"].map({
+        0: "No Disease",
+        1: "Cardiovascular Disease"
+    })
     pie_fig = px.pie(
         filtered,
         names="cardio_txt",
-        hole=0.58,
+        hole=0.62,
         color="cardio_txt",
         color_discrete_map={
             "No Disease": TEAL,
             "Cardiovascular Disease": RED
         }
     )
-
     pie_fig.update_traces(
         textinfo="percent+label",
-        textposition="outside"
+        textposition="outside",
+        textfont={"color": WHITE, "size": 12, "family": "IBM Plex Sans, Arial, sans-serif"},
+        outsidetextfont={"color": WHITE, "size": 12, "family": "IBM Plex Sans, Arial, sans-serif"},
+        automargin=True,
+        marker={"line": {"color": "white", "width": 2}},
     )
     pie_fig.update_layout(showlegend=False)
-
-    # Age distribution
     age_fig = px.histogram(
         filtered,
         x="age_years",
-        nbins=20,
-        color_discrete_sequence=[TEAL],  
+        nbins=25,
+        color_discrete_sequence=[BLUE],
         labels={"age_years": "Age (years)"}
     )
     age_fig.update_yaxes(title="Number of patients")
-
-    # Blood pressure by disease status
     bp_fig = px.box(
         filtered,
         x="cardio",
         y="ap_hi",
         color="cardio",
-        color_discrete_map={0: TEAL, 1: RED},
+        color_discrete_map={
+            0: TEAL,
+            1: RED
+        },
+        points="outliers",
         labels={
             "cardio": "Disease Status",
             "ap_hi": "Systolic Blood Pressure (mmHg)"
@@ -865,57 +1435,162 @@ def update_overview_heart(selected_gender, age_range):
         tickvals=[0, 1],
         ticktext=["No Disease", "Disease"]
     )
-
-    # Cholesterol distribution
-    cholesterol_fig = px.histogram(
-        filtered,
-        x="cholesterol",
+    cholesterol_data = (
+        filtered.groupby(["cholesterol", "cardio"])
+        .size()
+        .reset_index(name="Patients")
+    )
+    cholesterol_data["Cholesterol Category"] = (
+        cholesterol_data["cholesterol"].map({
+            1: "Normal",
+            2: "Above Normal",
+            3: "Well Above Normal"
+        })
+    )
+    cholesterol_fig = px.bar(
+        cholesterol_data,
+        x="Cholesterol Category",
+        y="Patients",
         color="cardio",
         barmode="group",
-        color_discrete_map={0: TEAL, 1: RED},
+        color_discrete_map={
+            0: TEAL,
+            1: RED
+        },
+        category_orders={
+            "Cholesterol Category": [
+                "Normal",
+                "Above Normal",
+                "Well Above Normal"
+            ]
+        },
         labels={
-            "cholesterol": "Cholesterol Level",
-            "cardio": "Disease Status"
+            "cardio": "Disease Status",
+            "Patients": "Number of patients"
         }
     )
-    cholesterol_fig.update_xaxes(
-        tickmode="array",
-        tickvals=[1, 2, 3],
-        ticktext=["Normal", "Above Normal", "Well Above Normal"]
-    )
-    cholesterol_fig.update_yaxes(title="Number of patients")
-
-    # BMI distribution
     bmi_fig = px.histogram(
         filtered,
         x="bmi",
         nbins=25,
         color="cardio",
-        color_discrete_map={0: TEAL, 1: RED},
+        color_discrete_map={
+            0: TEAL,
+            1: RED
+        },
         barmode="overlay",
-        opacity=0.65,
+        opacity=0.60,
         labels={
             "bmi": "Body Mass Index (BMI)",
             "cardio": "Disease Status"
         }
     )
     bmi_fig.update_yaxes(title="Number of patients")
-
-    # Age vs systolic blood pressure
     scatter_fig = px.scatter(
         filtered,
         x="age_years",
         y="ap_hi",
         color="cardio",
-        color_discrete_map={0: TEAL, 1: RED},
-        opacity=0.65,
+        color_discrete_map={
+            0: TEAL,
+            1: RED
+        },
+        opacity=0.55,
         labels={
             "age_years": "Age (years)",
             "ap_hi": "Systolic Blood Pressure (mmHg)",
             "cardio": "Disease Status"
         }
     )
+    age_data = filtered.copy()
+    age_data["Age Group"] = pd.cut(
+        age_data["age_years"],
+        bins=[0, 40, 50, 60, 70, 200],
+        labels=[
+            "Under 40",
+            "40–49",
+            "50–59",
+            "60–69",
+            "70+"
+        ],
+        right=False
+    )
+    age_rate = (
+        age_data.groupby("Age Group", observed=True)["cardio"]
+        .mean()
+        .reset_index()
+    )
+    age_rate["Disease Rate (%)"] = age_rate["cardio"] * 100
+    age_rate_fig = px.bar(
+        age_rate,
+        x="Age Group",
+        y="Disease Rate (%)",
+        color="Disease Rate (%)",
+        color_continuous_scale=["#93c5fd", BLUE],
+        text="Disease Rate (%)",
+        labels={
+            "Age Group": "Age Group",
+            "Disease Rate (%)": "Disease Rate"
+        }
+    )
+    age_rate_fig.update_traces(
+        texttemplate="%{text:.1f}%",
+        textposition="outside"
+    )
+    age_rate_fig.update_yaxes(
+        title="Disease Rate (%)",
+        range=[0, 100]
+    )
+    age_rate_fig.update_layout(coloraxis_showscale=False)
+    bmi_violin_fig = px.violin(
+        filtered,
+        x="cardio",
+        y="bmi",
+        color="cardio",
+        box=True,
+        points=False,
+        color_discrete_map={
+            0: TEAL,
+            1: RED
+        },
+        labels={
+            "cardio": "Disease Status",
+            "bmi": "Body Mass Index (BMI)"
+        }
+    )
+    bmi_violin_fig.update_xaxes(
+        tickmode="array",
+        tickvals=[0, 1],
+        ticktext=["No Disease", "Disease"]
+    )
+    numeric_data = filtered.select_dtypes(include="number").copy()
+    if "id" in numeric_data.columns:
+        numeric_data = numeric_data.drop(columns=["id"])
 
+    correlation = numeric_data.corr()
+
+    correlation_fig = px.imshow(
+        correlation,
+        color_continuous_scale="RdBu_r",
+        zmin=-1,
+        zmax=1,
+        aspect="auto",
+        labels={
+            "x": "Health Indicators",
+            "y": "Health Indicators",
+            "color": "Correlation"
+        }
+    )
+    correlation_fig.update_traces(
+        hovertemplate=(
+            "%{y} vs %{x}<br>"
+            "Correlation: %{z:.2f}"
+            "<extra></extra>"
+        )
+    )
+    correlation_fig.update_layout(
+        xaxis={"tickangle": -35}
+    )
     return (
         patients,
         disease_rate,
@@ -927,6 +1602,9 @@ def update_overview_heart(selected_gender, age_range):
         format_chart_heart(cholesterol_fig),
         format_chart_heart(bmi_fig),
         format_chart_heart(scatter_fig),
+        format_chart_heart(age_rate_fig),
+        format_chart_heart(bmi_violin_fig),
+        format_chart_heart(correlation_fig),
     )
 
 # --- Dataset 2: Diabetes ---
@@ -939,77 +1617,303 @@ def update_overview_heart(selected_gender, age_range):
     Output("diab-hba1c-hist", "figure"),
     Output("diab-glucose-scatter", "figure"),
     Output("diab-breakdown-bar", "figure"),
+    Output("diab-bmi-violin", "figure"),
+    Output("diab-risk-score-box", "figure"),
+    Output("diab-smoking-rate", "figure"),
+    Output("diab-comorbidity-rate", "figure"),
+    Output("diab-correlation-heatmap", "figure"),
     Input("diab-gender-filter", "value"),
     Input("diab-age-filter", "value"),
     Input("diab-bmi-filter", "value"),
     Input("diab-breakdown-select", "value"),
 )
+
 def update_explore_diab(gender, age_group, bmi_category, breakdown):
     filtered = df.copy()
-    
     if gender != "All":
         filtered = filtered[filtered["gender"] == gender]
     if age_group != "All":
         filtered = filtered[filtered["age_group"] == age_group]
     if bmi_category != "All":
         filtered = filtered[filtered["bmi_category"] == bmi_category]
-
     if filtered.empty:
-        blank = empty_figure_diab()
-        return "0", "-", "-", "-", blank, blank, blank, blank
-
+        blank_figures = []
+        for _ in range(9):
+            blank_figures.append(empty_figure_diab())
+        return (
+            "0",
+            "-",
+            "-",
+            "-",
+            *blank_figures
+        )
     patients = f"{len(filtered):,}"
     rate = f"{filtered['diabetes'].mean():.1%}"
     hba1c = f"{filtered['HbA1c_level'].mean():.2f}"
     glucose = f"{filtered['blood_glucose_level'].mean():.0f}"
-
     pie_fig = px.pie(
-        filtered, names="result", hole=0.58, color="result",
+        filtered,
+        names="result",
+        hole=0.62,
+        color="result",
         color_discrete_map=RESULT_COLORS_DIAB,
-        category_orders={"result": ["No diabetes", "Diabetes"]},
+        category_orders={
+            "result": ["No diabetes", "Diabetes"]
+        }
     )
-    pie_fig.update_traces(textinfo="percent+label", textposition="outside",
-                          marker={"line": {"color": "white", "width": 2}})
+    pie_fig.update_traces(
+        textinfo="percent+label",
+        textposition="outside",
+        marker={"line": {"color": "white", "width": 2}}
+    )
     pie_fig.update_layout(showlegend=False)
-
     hist_fig = px.histogram(
-        filtered, x="HbA1c_level", color="result", nbins=30, barmode="overlay",
-        histnorm="percent", opacity=0.75, color_discrete_map=RESULT_COLORS_DIAB,
-        category_orders={"result": ["No diabetes", "Diabetes"]},
-        labels={"HbA1c_level": "HbA1c level (%)", "result": "Outcome"},
+        filtered,
+        x="HbA1c_level",
+        color="result",
+        nbins=30,
+        barmode="overlay",
+        histnorm="percent",
+        opacity=0.75,
+        color_discrete_map=RESULT_COLORS_DIAB,
+        category_orders={
+            "result": ["No diabetes", "Diabetes"]
+        },
+        labels={
+            "HbA1c_level": "HbA1c Level (%)",
+            "result": "Diabetes Status"
+        }
     )
     hist_fig.update_yaxes(title="Percent of group")
-
-    sample = filtered.sample(min(len(filtered), 3000), random_state=1).sort_values("diabetes")
+    sample = filtered.sample(
+        n=min(len(filtered), 3000),
+        random_state=1
+    ).sort_values("diabetes")
     scatter_fig = px.scatter(
-        sample, x="HbA1c_level", y="blood_glucose_level", color="result",
-        color_discrete_map=RESULT_COLORS_DIAB, opacity=0.55,
-        hover_data=["age", "bmi"],
-        labels={"HbA1c_level": "HbA1c level (%)", "blood_glucose_level": "Blood glucose (mg/dL)",
-                "result": "Outcome"},
+        sample,
+        x="HbA1c_level",
+        y="blood_glucose_level",
+        color="result",
+        color_discrete_map=RESULT_COLORS_DIAB,
+        opacity=0.55,
+        hover_data=["age", "bmi", "risk_score"],
+        labels={
+            "HbA1c_level": "HbA1c Level (%)",
+            "blood_glucose_level": "Blood Glucose (mg/dL)",
+            "result": "Diabetes Status"
+        }
     )
-
-    groups = (filtered.groupby(breakdown, observed=True)["diabetes"]
-              .agg(rate="mean", patients="size")
-              .reindex([c for c in ORDERS[breakdown]])
-              .dropna().reset_index())
+    groups = (
+        filtered.groupby(breakdown, observed=True)["diabetes"]
+        .agg(rate="mean", patients="size")
+        .reindex(ORDERS[breakdown])
+        .dropna()
+        .reset_index()
+    )
     groups["rate"] = groups["rate"] * 100
     bar_fig = px.bar(
-        groups, x=breakdown, y="rate", text=groups["rate"].map("{:.1f}%".format),
-        hover_data={"patients": True, "rate": ":.1f"},
-        color="rate", color_continuous_scale=[[0, "#f5cdbd"], [1, DIABETIC]],
-        labels={breakdown: BREAKDOWNS[breakdown], "rate": "Diabetes rate (%)"},
+        groups,
+        x=breakdown,
+        y="rate",
+        text=groups["rate"].map("{:.1f}%".format),
+        hover_data={
+            "patients": True,
+            "rate": ":.1f"
+        },
+        color="rate",
+        color_continuous_scale=[
+            [0, "#f5cdbd"],
+            [1, DIABETIC]
+        ],
+        labels={
+            breakdown: BREAKDOWNS[breakdown],
+            "rate": "Diabetes Rate (%)"
+        }
     )
-    bar_fig.update_traces(textposition="outside", cliponaxis=False)
+    bar_fig.update_traces(
+        textposition="outside",
+        cliponaxis=False
+    )
     bar_fig.update_layout(coloraxis_showscale=False)
-    bar_fig.add_hline(y=OVERALL_RATE * 100, line_dash="dash", line_color=INK,
-                      annotation_text="All patients", annotation_position="top left",
-                      annotation_font_color=MUTED_DIAB)
-    bar_fig.update_yaxes(title="Diabetes rate (%)", rangemode="tozero")
-
-    return (patients, rate, hba1c, glucose,
-            format_chart_diab(pie_fig), format_chart_diab(hist_fig),
-            format_chart_diab(scatter_fig), format_chart_diab(bar_fig))
+    bar_fig.add_hline(
+        y=OVERALL_RATE * 100,
+        line_dash="dash",
+        line_color=INK,
+        annotation_text="Overall rate",
+        annotation_position="top left",
+        annotation_font_color=MUTED_DIAB
+    )
+    bar_fig.update_yaxes(
+        title="Diabetes Rate (%)",
+        rangemode="tozero"
+    )
+    bmi_fig = px.violin(
+        filtered,
+        x="result",
+        y="bmi",
+        color="result",
+        box=True,
+        points=False,
+        color_discrete_map=RESULT_COLORS_DIAB,
+        category_orders={
+            "result": ["No diabetes", "Diabetes"]
+        },
+        labels={
+            "result": "Diabetes Status",
+            "bmi": "Body Mass Index (BMI)"
+        }
+    )
+    risk_fig = px.box(
+        filtered,
+        x="result",
+        y="risk_score",
+        color="result",
+        points="outliers",
+        color_discrete_map=RESULT_COLORS_DIAB,
+        category_orders={
+            "result": ["No diabetes", "Diabetes"]
+        },
+        labels={
+            "result": "Diabetes Status",
+            "risk_score": "Risk Score"
+        }
+    )
+    smoking_data = (
+        filtered.groupby("smoking_history", observed=True)["diabetes"]
+        .agg(rate="mean", patients="size")
+        .reset_index()
+    )
+    smoking_data["rate_pct"] = smoking_data["rate"] * 100
+    smoking_fig = px.bar(
+        smoking_data,
+        x="smoking_history",
+        y="rate_pct",
+        color="rate_pct",
+        text=smoking_data["rate_pct"].map("{:.1f}%".format),
+        hover_data={"patients": True},
+        color_continuous_scale=[
+            [0, "#f5cdbd"],
+            [1, DIABETIC]
+        ],
+        labels={
+            "smoking_history": "Smoking History",
+            "rate_pct": "Diabetes Rate (%)"
+        }
+    )
+    smoking_fig.update_traces(
+        textposition="outside",
+        cliponaxis=False
+    )
+    smoking_fig.update_layout(coloraxis_showscale=False)
+    smoking_fig.update_yaxes(
+        title="Diabetes Rate (%)",
+        rangemode="tozero"
+    )
+    comorbidity_data = filtered.copy()
+    comorbidity_data["comorbidity_group"] = "Neither condition"
+    comorbidity_data.loc[
+        (comorbidity_data["hypertension"] == 1) &
+        (comorbidity_data["heart_disease"] == 0),
+        "comorbidity_group"
+    ] = "Hypertension only"
+    comorbidity_data.loc[
+        (comorbidity_data["hypertension"] == 0) &
+        (comorbidity_data["heart_disease"] == 1),
+        "comorbidity_group"
+    ] = "Heart disease only"
+    comorbidity_data.loc[
+        (comorbidity_data["hypertension"] == 1) &
+        (comorbidity_data["heart_disease"] == 1),
+        "comorbidity_group"
+    ] = "Both conditions"
+    comorbidity_summary = (
+        comorbidity_data.groupby("comorbidity_group")["diabetes"]
+        .agg(rate="mean", patients="size")
+        .reset_index()
+    )
+    comorbidity_summary["rate_pct"] = (
+        comorbidity_summary["rate"] * 100
+    )
+    comorbidity_order = [
+        "Neither condition",
+        "Hypertension only",
+        "Heart disease only",
+        "Both conditions"
+    ]
+    comorbidity_fig = px.bar(
+        comorbidity_summary,
+        x="comorbidity_group",
+        y="rate_pct",
+        color="rate_pct",
+        text=comorbidity_summary["rate_pct"].map("{:.1f}%".format),
+        hover_data={"patients": True},
+        category_orders={
+            "comorbidity_group": comorbidity_order
+        },
+        color_continuous_scale=[
+            [0, "#f5cdbd"],
+            [1, DIABETIC]
+        ],
+        labels={
+            "comorbidity_group": "Health Conditions",
+            "rate_pct": "Diabetes Rate (%)"
+        }
+    )
+    comorbidity_fig.update_traces(
+        textposition="outside",
+        cliponaxis=False
+    )
+    comorbidity_fig.update_layout(coloraxis_showscale=False)
+    comorbidity_fig.update_xaxes(tickangle=-15)
+    comorbidity_fig.update_yaxes(
+        title="Diabetes Rate (%)",
+        rangemode="tozero"
+    )
+    correlation_columns = [
+        "age",
+        "hypertension",
+        "heart_disease",
+        "bmi",
+        "HbA1c_level",
+        "blood_glucose_level",
+        "diabetes",
+        "risk_score"
+    ]
+    available_columns = [
+        col for col in correlation_columns
+        if col in filtered.columns
+    ]
+    correlation = filtered[available_columns].corr()
+    correlation_fig = px.imshow(
+        correlation,
+        color_continuous_scale="RdBu_r",
+        zmin=-1,
+        zmax=1,
+        aspect="auto",
+        labels={
+            "x": "Health Indicators",
+            "y": "Health Indicators",
+            "color": "Correlation"
+        }
+    )
+    correlation_fig.update_layout(
+        xaxis={"tickangle": -35}
+    )
+    return (
+        patients,
+        rate,
+        hba1c,
+        glucose,
+        format_chart_diab(pie_fig),
+        format_chart_diab(hist_fig),
+        format_chart_diab(scatter_fig),
+        format_chart_diab(bar_fig),
+        format_chart_diab(bmi_fig),
+        format_chart_diab(risk_fig),
+        format_chart_diab(smoking_fig),
+        format_chart_diab(comorbidity_fig),
+        format_chart_diab(correlation_fig)
+    )
 
 # --- Dataset 3: Chronic Kidney Disease ---
 @app.callback(
@@ -1021,94 +1925,103 @@ def update_explore_diab(gender, age_group, bmi_category, breakdown):
     Output("kidney-age-hist", "figure"),
     Output("kidney-age-creatinine-scatter", "figure"),
     Output("kidney-age-group-count", "figure"),
+    Output("kidney-urea-box", "figure"),
+    Output("kidney-hemoglobin-box", "figure"),
+    Output("kidney-albumin-hist", "figure"),
+    Output("kidney-bp-rate", "figure"),
+    Output("kidney-glucose-creatinine", "figure"),
+    Output("kidney-correlation-heatmap", "figure"),
     Input("kidney-age-filter", "value"),
     Input("kidney-age-slider", "value"),
 )
 def update_kidney_overview(selected_age_group, min_age):
-
-    # Filter the kidney dataset
-    filtered = df_kidney[df_kidney["Age"] >= min_age].copy()
+    filtered = df_kidney[
+        df_kidney["Age"] >= min_age
+    ].copy()
 
     if selected_age_group != "All":
         filtered = filtered[
             filtered["Age_Group"] == selected_age_group
         ]
-
-    # Handle empty filtered data
     if filtered.empty:
         empty_fig = format_chart_diab(
-            px.scatter(title="No data available for the selected filters")
+            px.scatter(
+                title="No data available for the selected filters"
+            )
         )
         return (
             "0", "N/A", "N/A", "N/A",
-            empty_fig, empty_fig, empty_fig, empty_fig,
+            *([empty_fig] * 10)
         )
-
-    # KPI Cards
     patients = f"{len(filtered):,}"
-
     ckd_rate = (
-        filtered["Chronic_Kidney_Disease"].eq("si").mean()
+        filtered["Chronic_Kidney_Disease"]
+        .eq("si")
+        .mean()
     )
     ckd_rate = f"{ckd_rate:.1%}"
-
     average_age = f"{filtered['Age'].mean():.1f} years"
-
     average_creatinine = (
         f"{filtered['Serum_Creatinine'].mean():.2f}"
     )
-
-    # Display labels for the target
-    filtered["CKD_Result"] = filtered[
-        "Chronic_Kidney_Disease"
-    ].map({
-        "no": "No CKD",
-        "si": "CKD"
-    })
-
-    # 1. CKD Outcomes
+    filtered["CKD_Result"] = (
+        filtered["Chronic_Kidney_Disease"]
+        .map({
+            "no": "No CKD",
+            "si": "CKD"
+        })
+    )
+    COLORS = {
+        "No CKD": HEALTHY,
+        "CKD": DIABETIC
+    }
+    ORDER = ["No CKD", "CKD"]
     pie_fig = px.pie(
         filtered,
         names="CKD_Result",
         hole=0.58,
         color="CKD_Result",
-        color_discrete_map={
-            "No CKD": HEALTHY,
-            "CKD": DIABETIC
-        },
+        color_discrete_map=COLORS,
         category_orders={
-            "CKD_Result": ["No CKD", "CKD"]
+            "CKD_Result": ORDER
         },
     )
     pie_fig.update_traces(
         textinfo="percent+label",
-        textposition="outside"
+        textposition="outside",
+        marker={
+            "line": {
+                "color": "white",
+                "width": 2
+            }
+        }
     )
     pie_fig.update_layout(showlegend=False)
-
-    # 2. Age Distribution
     hist_fig = px.histogram(
         filtered,
         x="Age",
         nbins=20,
         color="CKD_Result",
-        color_discrete_map={
-            "No CKD": HEALTHY,
-            "CKD": DIABETIC
+        barmode="overlay",
+        opacity=0.75,
+        color_discrete_map=COLORS,
+        category_orders={
+            "CKD_Result": ORDER
         },
-        labels={"Age": "Age (years)"}
+        labels={
+            "Age": "Age (years)",
+            "CKD_Result": "CKD Outcome"
+        },
     )
     hist_fig.update_yaxes(title="Number of patients")
-
-    # 3. Age vs. Serum Creatinine
     scatter_fig = px.scatter(
         filtered,
         x="Age",
         y="Serum_Creatinine",
         color="CKD_Result",
-        color_discrete_map={
-            "No CKD": HEALTHY,
-            "CKD": DIABETIC
+        color_discrete_map=COLORS,
+        category_orders={
+            "CKD_Result": ORDER
         },
         opacity=0.7,
         hover_data=[
@@ -1119,36 +2032,182 @@ def update_kidney_overview(selected_age_group, min_age):
         labels={
             "Age": "Age (years)",
             "Serum_Creatinine": "Serum Creatinine",
-            "CKD_Result": "CKD Result"
+            "CKD_Result": "CKD Outcome"
         },
     )
-
-    # 4. Patients by Age Group
     count_fig = px.histogram(
         filtered,
         x="Age_Group",
         color="CKD_Result",
         barmode="group",
-        color_discrete_map={
-            "No CKD": HEALTHY,
-            "CKD": DIABETIC
-        },
+        color_discrete_map=COLORS,
         category_orders={
             "Age_Group": [
                 "child",
                 "young_adult",
                 "middle_aged",
                 "senior"
-            ]
+            ],
+            "CKD_Result": ORDER
         },
         labels={
             "Age_Group": "Age Group",
-            "CKD_Result": "CKD Result"
+            "CKD_Result": "CKD Outcome"
         },
     )
     count_fig.update_yaxes(title="Number of patients")
     count_fig.update_xaxes(tickangle=-15)
+    urea_fig = px.box(
+        filtered,
+        x="CKD_Result",
+        y="Blood_Urea",
+        color="CKD_Result",
+        color_discrete_map=COLORS,
+        category_orders={
+            "CKD_Result": ORDER
+        },
+        points="outliers",
+        labels={
+            "CKD_Result": "CKD Outcome",
+            "Blood_Urea": "Blood Urea"
+        },
+    )
+    urea_fig.update_layout(showlegend=False)
+    urea_fig.update_yaxes(title="Blood Urea")
+    hemoglobin_fig = px.violin(
+        filtered,
+        x="CKD_Result",
+        y="Hemoglobin",
+        color="CKD_Result",
+        color_discrete_map=COLORS,
+        category_orders={
+            "CKD_Result": ORDER
+        },
+        box=True,
+        points=False,
+        labels={
+            "CKD_Result": "CKD Outcome",
+            "Hemoglobin": "Hemoglobin"
+        },
+    )
+    hemoglobin_fig.update_layout(showlegend=False)
+    hemoglobin_fig.update_yaxes(title="Hemoglobin")
+    albumin_fig = px.histogram(
+        filtered,
+        x="Albumin",
+        color="CKD_Result",
+        barmode="group",
+        color_discrete_map=COLORS,
+        category_orders={
+            "CKD_Result": ORDER
+        },
+        labels={
+            "Albumin": "Albumin Level",
+            "CKD_Result": "CKD Outcome"
+        },
+    )
 
+    albumin_fig.update_yaxes(title="Number of patients")
+    bp_groups = (
+        filtered.groupby(
+            "Blood_Pressure_Category",
+            observed=True
+        )["Chronic_Kidney_Disease"]
+        .apply(lambda x: x.eq("si").mean() * 100)
+        .reset_index(name="CKD_Rate")
+    )
+
+    bp_fig = px.bar(
+        bp_groups,
+        x="Blood_Pressure_Category",
+        y="CKD_Rate",
+        text=bp_groups["CKD_Rate"].map(
+            "{:.1f}%".format
+        ),
+        color="CKD_Rate",
+        color_continuous_scale=[
+            [0, "#b9d8e8"],
+            [1, DIABETIC]
+        ],
+        labels={
+            "Blood_Pressure_Category": "Blood Pressure Category",
+            "CKD_Rate": "CKD Rate (%)"
+        },
+    )
+    bp_fig.update_traces(
+        textposition="outside",
+        cliponaxis=False
+    )
+    bp_fig.update_layout(
+        coloraxis_showscale=False
+    )
+    bp_fig.update_yaxes(
+        title="CKD Rate (%)",
+        rangemode="tozero"
+    )
+    glucose_fig = px.scatter(
+        filtered,
+        x="Blood_Glucose_Random",
+        y="Serum_Creatinine",
+        color="CKD_Result",
+        color_discrete_map=COLORS,
+        category_orders={
+            "CKD_Result": ORDER
+        },
+        opacity=0.7,
+        hover_data=[
+            "Age",
+            "Blood_Urea",
+            "Blood_Pressure"
+        ],
+        labels={
+            "Blood_Glucose_Random": "Random Blood Glucose",
+            "Serum_Creatinine": "Serum Creatinine",
+            "CKD_Result": "CKD Outcome"
+        },
+    )
+    correlation_columns = [
+        "Age",
+        "Blood_Pressure",
+        "Specific_Gravity",
+        "Albumin",
+        "Sugar",
+        "Blood_Glucose_Random",
+        "Blood_Urea",
+        "Serum_Creatinine",
+        "Sodium",
+        "Potassium",
+        "Hemoglobin",
+        "Packed_Cell_Volume",
+        "White_Blood_Cell_Count",
+        "Red_Blood_Cell_Count"
+    ]
+    correlation_data = filtered[
+        correlation_columns
+    ].copy()
+    correlation_data["CKD_Encoded"] = (
+        filtered["Chronic_Kidney_Disease"]
+        .eq("si")
+        .astype(int)
+    )
+    correlation_matrix = correlation_data.corr()
+    correlation_fig = px.imshow(
+        correlation_matrix,
+        color_continuous_scale="RdBu_r",
+        zmin=-1,
+        zmax=1,
+        aspect="auto",
+        labels={
+            "x": "Clinical Features",
+            "y": "Clinical Features",
+            "color": "Correlation"
+        },
+    )
+    correlation_fig.update_layout(
+        coloraxis_colorbar={
+            "title": "Correlation"
+        }
+    )
     return (
         patients,
         ckd_rate,
@@ -1158,6 +2217,12 @@ def update_kidney_overview(selected_age_group, min_age):
         format_chart_diab(hist_fig),
         format_chart_diab(scatter_fig),
         format_chart_diab(count_fig),
+        format_chart_diab(urea_fig),
+        format_chart_diab(hemoglobin_fig),
+        format_chart_diab(albumin_fig),
+        format_chart_diab(bp_fig),
+        format_chart_diab(glucose_fig),
+        format_chart_diab(correlation_fig),
     )
 
 # ============================================================
