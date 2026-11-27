@@ -36,10 +36,12 @@ from dash import Dash, Input, Output, dcc, html
 import numpy as np
 import pandas as pd
 import plotly.express as px
+import joblib
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score, confusion_matrix, f1_score, precision_score,
-    recall_score, roc_auc_score, roc_curve,
+    recall_score, roc_auc_score, roc_curve,precision_recall_curve,
+    average_precision_score,balanced_accuracy_score,
 )
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -158,59 +160,95 @@ auc_diab = roc_auc_score(y_test_d, test_probability_diab)
 BASELINE_ACCURACY = 1 - y_test_d.mean()
 
 # --- Dataset 3: Chronic Kidney Disease ---
-# Patient_ID and the target label are not used as input features.
-FEATURES_KIDNEY = [
-    "Age",
-    "Blood_Pressure",
-    "Blood_Urea",
-    "Serum_Creatinine",
-    "Hemoglobin"
+KIDNEY_PREDICTIONS_FILE = Path(__file__).with_name(
+    "ckd_test_predictions.csv"
+)
+
+if not KIDNEY_PREDICTIONS_FILE.exists():
+    raise FileNotFoundError(
+        f"Put ckd_test_predictions.csv next to this script: "
+        f"{KIDNEY_PREDICTIONS_FILE}"
+    )
+
+kidney_predictions_df = pd.read_csv(KIDNEY_PREDICTIONS_FILE)
+
+required_columns = [
+    "Actual",
+    "Predicted",
+    "Probability_CKD"
 ]
 
-X_kidney = df_kidney[FEATURES_KIDNEY]
+missing_columns = [
+    col for col in required_columns
+    if col not in kidney_predictions_df.columns
+]
 
-# Convert target labels into binary values.
-# no = 0 (No CKD), si = 1 (CKD)
-y_kidney = df_kidney["Chronic_Kidney_Disease"].map({
-    "no": 0,
-    "si": 1
+if missing_columns:
+    raise ValueError(
+        f"Missing columns in CKD predictions file: {missing_columns}"
+    )
+
+y_test_k = kidney_predictions_df["Actual"].map({
+    "No CKD": 0,
+    "CKD": 1
 })
 
-if y_kidney.isna().any():
-    raise ValueError("Unexpected or missing CKD target values.")
-
-X_train_k, X_test_k, y_train_k, y_test_k = train_test_split(
-    X_kidney,
-    y_kidney,
-    test_size=0.25,
-    random_state=42,
-    stratify=y_kidney
+test_probability_kidney = pd.to_numeric(
+    kidney_predictions_df["Probability_CKD"],
+    errors="coerce"
 )
-# Fit preprocessing ONLY on training data.
-scaler_kidney = StandardScaler()
 
-X_train_k_scaled = scaler_kidney.fit_transform(X_train_k)
-X_test_k_scaled = scaler_kidney.transform(X_test_k)
+if y_test_k.isna().any() or test_probability_kidney.isna().any():
+    raise ValueError("Invalid values in CKD test predictions.")
 
-# Train Logistic Regression model.
-model_kidney = LogisticRegression(
-    max_iter=1000,
-    random_state=42
-)
-model_kidney.fit(X_train_k_scaled, y_train_k)
-# Predict probabilities for the positive class (CKD).
-test_probability_kidney = model_kidney.predict_proba(
-    X_test_k_scaled
-)[:, 1]
-# ROC Curve and AUC.
 fpr_k, tpr_k, roc_thresholds_k = roc_curve(
     y_test_k,
     test_probability_kidney
 )
+
 auc_kidney = roc_auc_score(
     y_test_k,
     test_probability_kidney
 )
+
+# ============================================================
+# ADDITIONAL CKD EVALUATION METRICS
+# ============================================================
+# Precision-Recall Curve
+precision_k, recall_k, pr_thresholds_k = precision_recall_curve(
+    y_test_k,
+    test_probability_kidney
+)
+
+average_precision_kidney = average_precision_score(
+    y_test_k,
+    test_probability_kidney
+)
+
+# Threshold Analysis
+threshold_values_k = np.linspace(0.05, 0.95, 19)
+
+threshold_metrics_k = []
+
+for t in threshold_values_k:
+    temp_predictions = (
+        test_probability_kidney >= t
+    ).astype(int)
+
+    threshold_metrics_k.append({
+        "Threshold": t,
+        "Precision": precision_score(
+            y_test_k, temp_predictions, zero_division=0
+        ),
+        "Recall": recall_score(
+            y_test_k, temp_predictions, zero_division=0
+        ),
+        "F1-Score": f1_score(
+            y_test_k, temp_predictions, zero_division=0
+        )
+    })
+
+threshold_metrics_df_k = pd.DataFrame(threshold_metrics_k)
 
 # ============================================================
 # 4. DASH APP + UNIFIED PREMIUM DESIGN SYSTEM
@@ -1195,12 +1233,31 @@ explore_tab_kidney = html.Div([
     ]),
 
 ])
+
 kidney_model_tab = html.Div([
-    # Threshold Filter
+
+    # ========================================================
+    # MODEL EVALUATION HEADER
+    # ========================================================
+    html.Div([
+        html.H4(
+            "CKD Model Performance",
+            className="fw-bold mb-1"
+        ),
+        html.P(
+            "Evaluation of Logistic Regression on unseen test data",
+            className="text-muted mb-0"
+        ),
+    ], style={"marginBottom": "20px"}),
+
+    # ========================================================
+    # THRESHOLD FILTER
+    # ========================================================
     html.Div([
         html.Label(
             "Classification Threshold",
-            className="fw-bold mb-2"
+            className="fw-bold mb-2",
+            style={"color": "#0f172a"}
         ),
         dcc.Slider(
             id="kidney-threshold-slider",
@@ -1220,13 +1277,20 @@ kidney_model_tab = html.Div([
                 "always_visible": False
             }
         ),
+        html.Small(
+            "Adjust the probability threshold to change the classification decision.",
+            className="text-muted"
+        )
     ], style={
         "background": "white",
         "padding": "22px",
         "borderRadius": "16px",
-        "marginBottom": "18px"
+        "marginBottom": "20px"
     }),
-    # KPI Cards
+
+    # ========================================================
+    # KPI CARDS
+    # ========================================================
     dbc.Row([
         dbc.Col(
             metric_card_kidney(
@@ -1261,7 +1325,10 @@ kidney_model_tab = html.Div([
             lg=3, sm=6, className="mb-3"
         ),
     ]),
-    # Evaluation Charts
+
+    # ========================================================
+    # MAIN EVALUATION CHARTS
+    # ========================================================
     dbc.Row([
         dbc.Col(
             chart_panel_kidney(
@@ -1281,7 +1348,63 @@ kidney_model_tab = html.Div([
         ),
     ]),
 
-])
+    # ========================================================
+    # PRECISION-RECALL & THRESHOLD ANALYSIS
+    # ========================================================
+    dbc.Row([
+        dbc.Col(
+            chart_panel_kidney(
+                "Precision-Recall Curve",
+                f"Precision vs. Recall | Average Precision = {average_precision_kidney:.3f}",
+                "kidney-pr-curve"
+            ),
+            lg=6, className="mb-3"
+        ),
+        dbc.Col(
+            chart_panel_kidney(
+                "Threshold Analysis",
+                "How classification metrics change with the threshold",
+                "kidney-threshold-analysis"
+            ),
+            lg=6, className="mb-3"
+        ),
+    ]),
+
+    # ========================================================
+    # EVALUATION INFORMATION
+    # ========================================================
+    html.Div([
+        html.H6(
+            "Evaluation Information",
+            className="fw-bold mb-2",
+            style={"color": "#0f172a"}
+        ),
+        html.P(
+            f"Test samples: {len(y_test_k):,}",
+            className="mb-1",
+            style={"color": "#334155"}
+        ),
+        html.P(
+            "Model: Logistic Regression",
+            className="mb-1",
+            style={"color": "#334155"}
+        ),
+        html.P(
+            "Evaluation method: Stratified train-test split",
+            className="mb-0",
+            style={"color": "#334155"}
+        ),
+    ], style={
+        "background": "white",
+        "color": "#0f172a",
+        "padding": "20px",
+        "borderRadius": "16px",
+        "marginTop": "8px",
+        "borderLeft": f"4px solid {KIDNEY_ACCENT}"
+    }),
+
+], style={"paddingBottom": "15px"})
+
 kidney_full_tab = html.Div([
     dcc.Tabs(
         id="kidney-sub-tabs",
@@ -2412,31 +2535,47 @@ def update_model_diab(threshold):
     Output("kidney-f1-kpi", "children"),
     Output("kidney-confusion-heatmap", "figure"),
     Output("kidney-roc-line", "figure"),
+    Output("kidney-pr-curve", "figure"),
+    Output("kidney-threshold-analysis", "figure"),
     Input("kidney-threshold-slider", "value"),
 )
 def update_model_kidney(threshold):
-    # Predictions based on selected threshold.
+
+    # Predictions based on the selected threshold.
     predictions = (
         test_probability_kidney >= threshold
     ).astype(int)
+
     # Evaluation metrics.
     accuracy = accuracy_score(y_test_k, predictions)
+
     precision = precision_score(
-        y_test_k, predictions, zero_division=0
+        y_test_k,
+        predictions,
+        zero_division=0
     )
+
     recall = recall_score(
-        y_test_k, predictions, zero_division=0
+        y_test_k,
+        predictions,
+        zero_division=0
     )
+
     f1 = f1_score(
-        y_test_k, predictions, zero_division=0
+        y_test_k,
+        predictions,
+        zero_division=0
     )
+
     # Confusion Matrix.
     labels = ["No CKD", "CKD"]
+
     matrix = confusion_matrix(
         y_test_k,
         predictions,
         labels=[0, 1]
     )
+
     confusion_fig = px.imshow(
         matrix,
         x=labels,
@@ -2453,16 +2592,21 @@ def update_model_kidney(threshold):
             "color": "Patients"
         },
     )
+
     confusion_fig.update_traces(
         textfont={"size": 20}
     )
+
     confusion_fig.update_layout(
         coloraxis_showscale=False
     )
+
     # Calculate the operating point for the selected threshold.
     tn, fp, fn, tp = matrix.ravel()
+
     point_fpr = fp / (fp + tn) if (fp + tn) else 0
     point_tpr = tp / (tp + fn) if (tp + fn) else 0
+
     # ROC Curve.
     roc_fig = px.line(
         x=fpr_k,
@@ -2472,6 +2616,7 @@ def update_model_kidney(threshold):
             "y": "True Positive Rate"
         }
     )
+
     roc_fig.update_traces(
         line={
             "color": KIDNEY_ACCENT,
@@ -2480,6 +2625,7 @@ def update_model_kidney(threshold):
         name=f"ROC-AUC {auc_kidney:.3f}",
         showlegend=True
     )
+
     roc_fig.add_scatter(
         x=[0, 1],
         y=[0, 1],
@@ -2490,6 +2636,7 @@ def update_model_kidney(threshold):
             "dash": "dash"
         }
     )
+
     roc_fig.add_scatter(
         x=[point_fpr],
         y=[point_tpr],
@@ -2500,17 +2647,73 @@ def update_model_kidney(threshold):
             "size": 12
         }
     )
+
     roc_fig.update_xaxes(range=[0, 1])
     roc_fig.update_yaxes(range=[0, 1.03])
+
+    # ========================================================
+    # PRECISION-RECALL CURVE
+    # ========================================================
+
+    pr_fig = px.area(
+        x=recall_k,
+        y=precision_k,
+        labels={
+            "x": "Recall",
+            "y": "Precision"
+        },
+        title=f"Precision-Recall Curve (AP = {average_precision_kidney:.3f})"
+    )
+
+    pr_fig.update_traces(
+        line_color=KIDNEY_ACCENT,
+        fillcolor="rgba(35, 150, 145, 0.15)"
+    )
+
+    pr_fig.update_xaxes(range=[0, 1])
+    pr_fig.update_yaxes(range=[0, 1.05])
+
+
+    # ========================================================
+    # THRESHOLD ANALYSIS
+    # ========================================================
+
+    threshold_fig = px.line(
+        threshold_metrics_df_k,
+        x="Threshold",
+        y=["Precision", "Recall", "F1-Score"],
+        markers=True,
+        title="Performance Metrics Across Thresholds"
+    )
+
+    threshold_fig.update_layout(
+        xaxis_title="Classification Threshold",
+        yaxis_title="Score",
+        yaxis_range=[0, 1.05],
+        legend_title="Metric",
+        hovermode="x unified"
+    )
+
+    threshold_fig.add_vline(
+        x=threshold,
+        line_dash="dash",
+        line_color=KIDNEY_DISEASE,
+        annotation_text=f"Selected: {threshold:.2f}"
+    )
+
+    pr_fig = format_chart_kidney(pr_fig)
+    threshold_fig = format_chart_kidney(threshold_fig)
+
     return (
         f"{accuracy:.1%}",
         f"{precision:.1%}",
         f"{recall:.1%}",
         f"{f1:.1%}",
         format_chart_kidney(confusion_fig),
-        format_chart_kidney(roc_fig)
+        format_chart_kidney(roc_fig),
+        pr_fig,
+        threshold_fig
     )
-
 # ============================================================
 # 8. RUN THE APP
 # ============================================================
